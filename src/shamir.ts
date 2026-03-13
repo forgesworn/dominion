@@ -1,4 +1,4 @@
-import { randomBytes } from '@noble/ciphers/webcrypto';
+import { randomBytes } from '@noble/ciphers/utils.js';
 import type { CKShare } from './types.js';
 
 // GF(256) arithmetic with irreducible polynomial x^8 + x^4 + x^3 + x + 1 (0x11b)

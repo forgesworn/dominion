@@ -1,6 +1,5 @@
-import { gcm } from '@noble/ciphers/aes';
-import { randomBytes } from '@noble/ciphers/webcrypto';
-import { utf8ToBytes, bytesToUtf8 } from '@noble/ciphers/utils';
+import { gcm } from '@noble/ciphers/aes.js';
+import { utf8ToBytes, bytesToUtf8, randomBytes } from '@noble/ciphers/utils.js';
 
 const IV_LENGTH = 12;
 
