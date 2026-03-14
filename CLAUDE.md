@@ -7,9 +7,11 @@ Dominion is an epoch-based encrypted access control protocol for Nostr. HKDF-der
 ## Commands
 
 ```bash
-node node_modules/vitest/vitest.mjs run          # run all tests
-node node_modules/typescript/bin/tsc --noEmit     # typecheck
-npm run build                                     # compile to dist/
+npm test            # vitest run — all tests
+npm run typecheck   # tsc --noEmit
+npm run build       # tsc → dist/
+npm run test:watch  # vitest watch mode
+npm run clean       # rm -rf dist/
 ```
 
 ## Key Conventions
