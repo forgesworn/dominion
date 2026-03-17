@@ -1,6 +1,8 @@
 import { KIND_VAULT_SHARE, PROTOCOL_LABEL } from '../constants.js';
 import type { NostrEvent, VaultShareData, CryptoAlgorithm } from '../types.js';
 
+const HEX64_RE = /^[0-9a-f]{64}$/;
+
 /**
  * Build a kind 30480 vault share event (unsigned, unencrypted).
  *
@@ -15,6 +17,9 @@ export function buildVaultShareEvent(
   epochId: string,
   tier: string
 ): NostrEvent {
+  if (!HEX64_RE.test(authorPubkey)) throw new Error('Invalid author pubkey');
+  if (!HEX64_RE.test(recipientPubkey)) throw new Error('Invalid recipient pubkey');
+  if (!HEX64_RE.test(ckHex)) throw new Error('Invalid content key hex');
   return {
     kind: KIND_VAULT_SHARE,
     pubkey: authorPubkey,
@@ -41,7 +46,7 @@ export function parseVaultShare(event: Record<string, unknown>): VaultShareData 
 
   if (!Array.isArray(event.tags)) return null;
   const tags = event.tags as unknown[];
-  if (!tags.every(t => Array.isArray(t))) return null;
+  if (!tags.every(t => Array.isArray(t) && t.every(e => typeof e === 'string'))) return null;
   const safeTags = tags as string[][];
 
   const dTag = safeTags.find(t => t[0] === 'd');
@@ -70,17 +75,20 @@ export function parseVaultShare(event: Record<string, unknown>): VaultShareData 
 
 /**
  * Build a Nostr filter for vault share events.
+ * When both epochId and tier are provided, filters by the exact d-tag value.
+ * When only authorPubkey is provided, returns all shares from that author.
  */
 export function buildVaultShareFilter(
   authorPubkey: string,
-  epochId?: string
+  epochId?: string,
+  tier?: string
 ): Record<string, unknown> {
   const filter: Record<string, unknown> = {
     kinds: [KIND_VAULT_SHARE],
     authors: [authorPubkey],
   };
-  if (epochId) {
-    filter['#d'] = [epochId];
+  if (epochId && tier) {
+    filter['#d'] = [`${epochId}:${tier}`];
   }
   return filter;
 }

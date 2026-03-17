@@ -28,6 +28,7 @@ export function addToTier(config: DominionConfig, tier: string, pubkey: string):
 
 /** Remove a pubkey from a tier. */
 export function removeFromTier(config: DominionConfig, tier: string, pubkey: string): DominionConfig {
+  if (RESERVED_KEYS.includes(tier)) throw new Error('Reserved tier name');
   const currentTier = config.tiers[tier];
   if (!Array.isArray(currentTier)) return config;
   return {

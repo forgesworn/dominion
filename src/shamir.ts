@@ -33,7 +33,7 @@ function gfInv(a: number): number {
  * Split a secret into `totalShares` shares with a reconstruction `threshold`.
  * Uses GF(256) Shamir secret sharing — each byte independently.
  */
-export function splitSecret(secret: Uint8Array, totalShares: number, threshold: number): CKShare[] {
+export function splitSecret(secret: Uint8Array, threshold: number, totalShares: number): CKShare[] {
   if (threshold > totalShares) throw new Error('Threshold cannot exceed total shares');
   if (threshold < 2) throw new Error('Threshold must be at least 2');
   if (totalShares < 2) throw new Error('Total shares must be at least 2');

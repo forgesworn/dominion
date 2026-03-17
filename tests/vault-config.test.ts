@@ -78,6 +78,20 @@ describe('parseVaultConfig', () => {
     expect(parseVaultConfig('{"tiers": {"family": 42}, "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
   });
 
+  it('returns null for non-string elements in tier array', () => {
+    expect(parseVaultConfig('{"tiers": {"family": [42, null]}, "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
+  });
+
+  it('returns null for malformed individualGrants entries', () => {
+    expect(parseVaultConfig('{"tiers": {}, "individualGrants": [42], "revokedPubkeys": []}')).toBeNull();
+    expect(parseVaultConfig('{"tiers": {}, "individualGrants": [{"pubkey": 1, "label": "x", "grantedAt": 0}], "revokedPubkeys": []}')).toBeNull();
+    expect(parseVaultConfig('{"tiers": {}, "individualGrants": [{"pubkey": "abc", "label": "x", "grantedAt": "not a number"}], "revokedPubkeys": []}')).toBeNull();
+  });
+
+  it('returns null for non-string elements in revokedPubkeys', () => {
+    expect(parseVaultConfig('{"tiers": {}, "individualGrants": [], "revokedPubkeys": [123, null]}')).toBeNull();
+  });
+
   it('accepts auto tier value', () => {
     const parsed = parseVaultConfig('{"tiers": {"connections": "auto"}, "individualGrants": [], "revokedPubkeys": []}');
     expect(parsed).not.toBeNull();

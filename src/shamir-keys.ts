@@ -7,7 +7,7 @@ import type { CKShare } from './types.js';
  */
 export function splitCK(ck: Uint8Array, threshold: number, total: number): CKShare[] {
   if (ck.length !== 32) throw new Error('Content key must be 32 bytes');
-  return splitSecret(ck, total, threshold);
+  return splitSecret(ck, threshold, total);
 }
 
 /**

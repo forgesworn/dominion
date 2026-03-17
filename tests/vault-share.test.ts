@@ -26,6 +26,21 @@ describe('buildVaultShareEvent', () => {
     expect(event.created_at).toBeGreaterThan(now - 10);
     expect(event.created_at).toBeLessThanOrEqual(now);
   });
+
+  it('rejects invalid author pubkey', () => {
+    expect(() => buildVaultShareEvent('bad', RECIPIENT, CK_HEX, '2026-W09', 'family'))
+      .toThrow('Invalid author pubkey');
+  });
+
+  it('rejects invalid recipient pubkey', () => {
+    expect(() => buildVaultShareEvent(AUTHOR, 'bad', CK_HEX, '2026-W09', 'family'))
+      .toThrow('Invalid recipient pubkey');
+  });
+
+  it('rejects invalid content key hex', () => {
+    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, 'bad', '2026-W09', 'family'))
+      .toThrow('Invalid content key hex');
+  });
 });
 
 describe('parseVaultShare', () => {
@@ -97,6 +112,25 @@ describe('parseVaultShare', () => {
     };
     expect(parseVaultShare(malformed)).toBeNull();
   });
+
+  it('returns null for non-string inner tag elements', () => {
+    const malformed = {
+      kind: 30480, pubkey: AUTHOR, content: CK_HEX, created_at: 0,
+      tags: [['d', 12345]],
+    };
+    expect(parseVaultShare(malformed)).toBeNull();
+  });
+
+  it('handles d-tag without colon — returns tier unknown', () => {
+    const malformed = {
+      kind: 30480, pubkey: AUTHOR, content: CK_HEX, created_at: 0,
+      tags: [['d', '2026-W09'], ['L', 'dominion']],
+    };
+    const parsed = parseVaultShare(malformed);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.epochId).toBe('2026-W09');
+    expect(parsed!.tier).toBe('unknown');
+  });
 });
 
 describe('buildVaultShareFilter', () => {
@@ -108,8 +142,21 @@ describe('buildVaultShareFilter', () => {
     });
   });
 
-  it('creates a filter for a specific epoch', () => {
+  it('creates a filter with no #d when only epochId provided (no tier)', () => {
     const filter = buildVaultShareFilter(AUTHOR, '2026-W09');
-    expect(filter).toHaveProperty('#d');
+    expect(filter).not.toHaveProperty('#d');
+  });
+
+  it('creates a filter matching the d-tag when epochId and tier provided', () => {
+    const filter = buildVaultShareFilter(AUTHOR, '2026-W09', 'family');
+    expect(filter).toEqual({
+      kinds: [30480],
+      authors: [AUTHOR],
+      '#d': ['2026-W09:family'],
+    });
+    // Verify filter d-tag matches what the builder produces
+    const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
+    const dTag = event.tags.find(t => t[0] === 'd');
+    expect((filter['#d'] as string[])[0]).toBe(dTag![1]);
   });
 });

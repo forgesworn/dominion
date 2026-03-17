@@ -39,8 +39,17 @@ export function parseVaultConfig(contentJson: string): DominionConfig | null {
     if (Object.keys(obj.tiers).some((k: string) => DANGEROUS_KEYS.includes(k))) return null;
 
     for (const [, v] of Object.entries(obj.tiers)) {
-      if (v !== 'auto' && !Array.isArray(v)) return null;
+      if (v === 'auto') continue;
+      if (!Array.isArray(v)) return null;
+      if (!(v as unknown[]).every((e: unknown) => typeof e === 'string')) return null;
     }
+
+    for (const g of obj.individualGrants) {
+      if (!g || typeof g !== 'object') return null;
+      if (typeof g.pubkey !== 'string' || typeof g.label !== 'string' || typeof g.grantedAt !== 'number') return null;
+    }
+
+    if (!obj.revokedPubkeys.every((p: unknown) => typeof p === 'string')) return null;
 
     return obj as DominionConfig;
   } catch {

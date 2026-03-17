@@ -155,4 +155,9 @@ describe('edge cases', () => {
     const config = defaultConfig();
     expect(() => addToTier(config, 'prototype', 'pubkey1')).toThrow('Reserved tier name');
   });
+
+  it('removeFromTier rejects __proto__ as tier name', () => {
+    const config = defaultConfig();
+    expect(() => removeFromTier(config, '__proto__', 'pubkey1')).toThrow('Reserved tier name');
+  });
 });
