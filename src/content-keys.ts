@@ -8,6 +8,7 @@ import { CK_SALT } from './constants.js';
  * CK = HKDF-SHA256(ikm=privkey, salt="vaulstr-ck-v1", info="epoch:{epochId}:tier:{tier}")
  */
 export function deriveContentKey(privkeyHex: string, epochId: string, tier: string): Uint8Array {
+  if (privkeyHex.length !== 64) throw new Error('Private key must be 32 bytes (64 hex chars)');
   const ikm = hexToBytes(privkeyHex);
   const salt = new TextEncoder().encode(CK_SALT);
   const info = new TextEncoder().encode(`epoch:${epochId}:tier:${tier}`);
@@ -24,9 +25,9 @@ export function getCurrentEpochId(): string {
   return getEpochIdForDate(new Date());
 }
 
-/** Get the ISO week epoch ID for a specific date (format: YYYY-Www). */
+/** Get the ISO week epoch ID for a specific date (format: YYYY-Www). Uses UTC to ensure cross-timezone consistency. */
 export function getEpochIdForDate(date: Date): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));

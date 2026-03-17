@@ -14,6 +14,8 @@ export function buildVaultConfigEvent(authorPubkey: string, config: DominionConf
     created_at: Math.floor(Date.now() / 1000),
     tags: [
       ['d', 'vault-config'],
+      ['encrypted', 'nip44'],
+      ['algo', 'secp256k1'],
       ['L', PROTOCOL_LABEL],
       ['l', 'config', PROTOCOL_LABEL],
     ],

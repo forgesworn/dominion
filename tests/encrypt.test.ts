@@ -17,8 +17,8 @@ describe('string encryption', () => {
   it('encrypted output is base64 and different from plaintext', () => {
     const ciphertext = encrypt('test', ck);
     expect(ciphertext).not.toBe('test');
-    const decoded = Buffer.from(ciphertext, 'base64');
-    expect(decoded.length).toBeGreaterThanOrEqual(32);
+    const binary = atob(ciphertext);
+    expect(binary.length).toBeGreaterThanOrEqual(32);
   });
 
   it('fails to decrypt with wrong key', () => {
@@ -71,5 +71,27 @@ describe('blob encryption', () => {
     const encrypted = encryptBlob(data, ck);
     const decrypted = decryptBlob(encrypted, ck);
     expect(decrypted.length).toBe(0);
+  });
+
+  it('throws on truncated ciphertext', () => {
+    const data = new Uint8Array([1, 2, 3, 4, 5]);
+    const encrypted = encryptBlob(data, ck);
+    const truncated = encrypted.slice(0, 10); // less than IV_LENGTH + tag
+    expect(() => decryptBlob(truncated, ck)).toThrow();
+  });
+
+  it('throws on corrupted ciphertext (flipped bit)', () => {
+    const data = new Uint8Array([1, 2, 3, 4, 5]);
+    const encrypted = encryptBlob(data, ck);
+    const corrupted = new Uint8Array(encrypted);
+    corrupted[15] ^= 0xff; // flip a byte in the ciphertext region
+    expect(() => decryptBlob(corrupted, ck)).toThrow();
+  });
+
+  it('throws on corrupted base64 string encryption', () => {
+    const ciphertext = encrypt('hello', ck);
+    // Corrupt a character in the middle
+    const corrupted = ciphertext.slice(0, 10) + 'X' + ciphertext.slice(11);
+    expect(() => decrypt(corrupted, ck)).toThrow();
   });
 });

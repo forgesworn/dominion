@@ -44,14 +44,16 @@ export function parseVaultShare(event: Record<string, unknown>): VaultShareData 
   const tierTag = tags.find(t => t[0] === 'tier');
   const algoTag = tags.find(t => t[0] === 'algo');
 
+  if (typeof event.pubkey !== 'string' || typeof event.content !== 'string') return null;
+
   const colonIdx = dTag[1].indexOf(':');
   const epochId = colonIdx !== -1 ? dTag[1].slice(0, colonIdx) : dTag[1];
   const tier = tierTag?.[1] ?? (colonIdx !== -1 ? dTag[1].slice(colonIdx + 1) : 'unknown');
 
   return {
-    fromPubkey: event.pubkey as string,
+    fromPubkey: event.pubkey,
     epochId,
-    ckHex: event.content as string,
+    ckHex: event.content,
     tier,
     algorithm: (algoTag?.[1] ?? 'secp256k1') as CryptoAlgorithm,
   };

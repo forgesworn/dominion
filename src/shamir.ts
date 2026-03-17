@@ -71,6 +71,9 @@ export function combineShares(shares: CKShare[]): Uint8Array {
   if (shares.length < 2) throw new Error('Need at least 2 shares to reconstruct');
 
   const len = shares[0].data.length;
+  for (let i = 1; i < shares.length; i++) {
+    if (shares[i].data.length !== len) throw new Error('All shares must have equal data length');
+  }
   const result = new Uint8Array(len);
 
   for (let byteIdx = 0; byteIdx < len; byteIdx++) {

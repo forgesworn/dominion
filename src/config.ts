@@ -33,8 +33,16 @@ export function removeFromTier(config: DominionConfig, tier: string, pubkey: str
   };
 }
 
-/** Add an individual grant. */
+/** Add an individual grant. Idempotent — updates label if pubkey already exists. */
 export function addIndividualGrant(config: DominionConfig, pubkey: string, label: string): DominionConfig {
+  if (config.individualGrants.some(g => g.pubkey === pubkey)) {
+    return {
+      ...config,
+      individualGrants: config.individualGrants.map(g =>
+        g.pubkey === pubkey ? { ...g, label } : g
+      ),
+    };
+  }
   return {
     ...config,
     individualGrants: [

@@ -3,21 +3,36 @@ import { utf8ToBytes, bytesToUtf8, randomBytes } from '@noble/ciphers/utils.js';
 
 const IV_LENGTH = 12;
 
+/** Portable base64 encode (no Buffer dependency). */
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+/** Portable base64 decode (no Buffer dependency). */
+function fromBase64(str: string): Uint8Array {
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 /**
  * Encrypt a plaintext string with a 32-byte Content Key.
  * Returns base64(iv || ciphertext || tag).
  */
 export function encrypt(plaintext: string, ck: Uint8Array): string {
   const raw = encryptBlob(utf8ToBytes(plaintext), ck);
-  return Buffer.from(raw).toString('base64');
+  return toBase64(raw);
 }
 
 /**
  * Decrypt a base64(iv || ciphertext || tag) string with a 32-byte Content Key.
  */
 export function decrypt(ciphertext: string, ck: Uint8Array): string {
-  const raw = Buffer.from(ciphertext, 'base64');
-  const decrypted = decryptBlob(new Uint8Array(raw), ck);
+  const raw = fromBase64(ciphertext);
+  const decrypted = decryptBlob(raw, ck);
   return bytesToUtf8(decrypted);
 }
 

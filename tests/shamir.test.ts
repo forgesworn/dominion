@@ -55,4 +55,32 @@ describe('Shamir secret sharing', () => {
     const recovered = combineShares([shares[1], shares[3], shares[4]]);
     expect(Array.from(recovered)).toEqual(Array.from(secret));
   });
+
+  it('rejects totalShares < 2', () => {
+    expect(() => splitSecret(new Uint8Array([42]), 1, 1)).toThrow();
+  });
+
+  it('rejects threshold < 2', () => {
+    expect(() => splitSecret(new Uint8Array([42]), 3, 1)).toThrow();
+  });
+
+  it('handles all-zero secret', () => {
+    const secret = new Uint8Array(8).fill(0);
+    const shares = splitSecret(secret, 3, 2);
+    const recovered = combineShares([shares[0], shares[2]]);
+    expect(Array.from(recovered)).toEqual(Array.from(secret));
+  });
+
+  it('handles all-0xFF secret', () => {
+    const secret = new Uint8Array(8).fill(0xff);
+    const shares = splitSecret(secret, 3, 2);
+    const recovered = combineShares([shares[1], shares[2]]);
+    expect(Array.from(recovered)).toEqual(Array.from(secret));
+  });
+
+  it('rejects shares with mismatched data lengths', () => {
+    const share1 = { index: 1, data: new Uint8Array([1, 2, 3]) };
+    const share2 = { index: 2, data: new Uint8Array([4, 5]) };
+    expect(() => combineShares([share1, share2])).toThrow('All shares must have equal data length');
+  });
 });

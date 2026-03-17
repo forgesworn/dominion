@@ -11,6 +11,8 @@ describe('buildVaultConfigEvent', () => {
     expect(event.kind).toBe(30481);
     expect(event.pubkey).toBe(AUTHOR);
     expect(event.tags).toContainEqual(['d', 'vault-config']);
+    expect(event.tags).toContainEqual(['encrypted', 'nip44']);
+    expect(event.tags).toContainEqual(['algo', 'secp256k1']);
     expect(event.tags).toContainEqual(['L', 'dominion']);
     expect(event.tags).toContainEqual(['l', 'config', 'dominion']);
 
@@ -42,6 +44,26 @@ describe('parseVaultConfig', () => {
 
   it('returns null for JSON missing required fields', () => {
     expect(parseVaultConfig('{"foo": "bar"}')).toBeNull();
+  });
+
+  it('returns null for JSON with non-object tiers', () => {
+    expect(parseVaultConfig('{"tiers": "string", "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
+  });
+
+  it('returns null for JSON with non-array individualGrants', () => {
+    expect(parseVaultConfig('{"tiers": {}, "individualGrants": "string", "revokedPubkeys": []}')).toBeNull();
+  });
+
+  it('returns null for JSON with non-array revokedPubkeys', () => {
+    expect(parseVaultConfig('{"tiers": {}, "individualGrants": [], "revokedPubkeys": "string"}')).toBeNull();
+  });
+
+  it('returns null for null JSON value', () => {
+    expect(parseVaultConfig('null')).toBeNull();
+  });
+
+  it('returns null for JSON array', () => {
+    expect(parseVaultConfig('[]')).toBeNull();
   });
 
   it('roundtrips through build and parse', () => {

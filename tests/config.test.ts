@@ -104,4 +104,40 @@ describe('revocation', () => {
     config = unrevokePubkey(config, 'pubkey1');
     expect(config.revokedPubkeys).not.toContain('pubkey1');
   });
+
+  it('unrevokePubkey is safe for non-revoked pubkey', () => {
+    const config = defaultConfig();
+    const updated = unrevokePubkey(config, 'nonexistent');
+    expect(updated.revokedPubkeys).toEqual([]);
+  });
+});
+
+describe('edge cases', () => {
+  it('addIndividualGrant is idempotent — updates label on duplicate', () => {
+    let config = defaultConfig();
+    config = addIndividualGrant(config, 'pubkey1', 'Original');
+    config = addIndividualGrant(config, 'pubkey1', 'Updated');
+    expect(config.individualGrants).toHaveLength(1);
+    expect(config.individualGrants[0].label).toBe('Updated');
+  });
+
+  it('addToTier on an auto tier converts to explicit list', () => {
+    const config = defaultConfig();
+    expect(config.tiers.connections).toBe('auto');
+    const updated = addToTier(config, 'connections', 'pubkey1');
+    expect(Array.isArray(updated.tiers.connections)).toBe(true);
+    expect(updated.tiers.connections).toContain('pubkey1');
+  });
+
+  it('removeFromTier on a non-existent tier is safe', () => {
+    const config = defaultConfig();
+    const updated = removeFromTier(config, 'nonexistent', 'pubkey1');
+    expect(updated).toEqual(config);
+  });
+
+  it('removeFromTier on an auto tier is a no-op', () => {
+    const config = defaultConfig();
+    const updated = removeFromTier(config, 'connections', 'pubkey1');
+    expect(updated.tiers.connections).toBe('auto');
+  });
 });

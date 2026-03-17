@@ -50,6 +50,37 @@ describe('parseVaultShare', () => {
     event.tags = event.tags.filter(t => t[0] !== 'd');
     expect(parseVaultShare(event)).toBeNull();
   });
+
+  it('returns null for missing pubkey', () => {
+    const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
+    const malformed = { ...event, pubkey: undefined };
+    expect(parseVaultShare(malformed)).toBeNull();
+  });
+
+  it('returns null for missing content', () => {
+    const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
+    const malformed = { ...event, content: undefined };
+    expect(parseVaultShare(malformed)).toBeNull();
+  });
+
+  it('returns null for missing tags', () => {
+    const malformed = { kind: 30480, pubkey: AUTHOR, content: CK_HEX, created_at: 0 };
+    expect(parseVaultShare(malformed)).toBeNull();
+  });
+
+  it('falls back to secp256k1 when algo tag is absent', () => {
+    const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
+    event.tags = event.tags.filter(t => t[0] !== 'algo');
+    const parsed = parseVaultShare(event);
+    expect(parsed!.algorithm).toBe('secp256k1');
+  });
+
+  it('falls back to d-tag suffix when tier tag is absent', () => {
+    const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
+    event.tags = event.tags.filter(t => t[0] !== 'tier');
+    const parsed = parseVaultShare(event);
+    expect(parsed!.tier).toBe('family');
+  });
 });
 
 describe('buildVaultShareFilter', () => {

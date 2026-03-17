@@ -53,4 +53,26 @@ describe('content key derivation', () => {
     const hex = contentKeyToHex(ck);
     expect(hex).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it('rejects private key that is too short', () => {
+    expect(() => deriveContentKey('aa'.repeat(16), TEST_EPOCH_ID, TEST_TIER))
+      .toThrow('Private key must be 32 bytes (64 hex chars)');
+  });
+
+  it('rejects private key that is too long', () => {
+    expect(() => deriveContentKey('aa'.repeat(33), TEST_EPOCH_ID, TEST_TIER))
+      .toThrow('Private key must be 32 bytes (64 hex chars)');
+  });
+
+  it('rejects empty private key', () => {
+    expect(() => deriveContentKey('', TEST_EPOCH_ID, TEST_TIER))
+      .toThrow('Private key must be 32 bytes (64 hex chars)');
+  });
+
+  it('uses UTC consistently — same instant produces same epoch regardless of input construction', () => {
+    // Both represent the same UTC moment
+    const fromUTC = getEpochIdForDate(new Date(Date.UTC(2026, 0, 5)));
+    const fromUTC2 = getEpochIdForDate(new Date(Date.UTC(2026, 0, 5, 23, 59, 59)));
+    expect(fromUTC).toBe(fromUTC2);
+  });
 });

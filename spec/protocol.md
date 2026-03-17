@@ -575,6 +575,10 @@ Next epoch: payment due again
 
 Zaps are tips after the fact. Vault gating is access control before the fact. The content is genuinely encrypted — there's no "view source" workaround.
 
+### Regulatory Note
+
+Dominion is a key distribution protocol, not a payment processor. It must never custody, route, or intermediate funds. In a Lightning-gated access flow, payment occurs directly between the subscriber and the content creator's Lightning node. Dominion's only role is distributing the content key after the implementing application confirms payment externally. Any regulatory obligations arising from content monetisation (consumer rights, digital content directives, VAT on digital services) are the responsibility of the implementing application, not the Dominion protocol.
+
 ---
 
 ## 13. Warden Relays — Optional Upgrade
