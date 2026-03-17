@@ -450,7 +450,7 @@ A replaceable event storing the author's vault settings. Self-encrypted (NIP-44 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `tiers` | Object | Maps tier names to member lists. `"auto"` means derive from mutual follows. |
+| `tiers` | Object | Maps tier names to member lists. `"auto"` means derive from mutual follows. Note: programmatically adding a pubkey to an `"auto"` tier converts it to an explicit list, permanently replacing the auto-derivation behaviour. Implementing applications should guard against unintentional conversion. |
 | `individualGrants` | Array | One-off grants to specific pubkeys, independent of tiers. |
 | `revokedPubkeys` | Array | Pubkeys to skip during CK distribution. |
 | `epochConfig` | Object | Per-tier epoch length. Values: `"daily"`, `"weekly"`, `"monthly"`. |
