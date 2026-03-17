@@ -3,7 +3,10 @@ import type { NostrEvent, VaultShareData, CryptoAlgorithm } from '../types.js';
 
 /**
  * Build a kind 30480 vault share event (unsigned, unencrypted).
- * Caller is responsible for NIP-44 encryption + NIP-59 gift-wrapping.
+ *
+ * @security The `content` field contains the RAW CONTENT KEY in hex.
+ * This event MUST be NIP-44 encrypted and NIP-59 gift-wrapped before
+ * publishing. Publishing without encryption leaks the content key.
  */
 export function buildVaultShareEvent(
   authorPubkey: string,
@@ -20,6 +23,7 @@ export function buildVaultShareEvent(
       ['d', `${epochId}:${tier}`],
       ['p', recipientPubkey],
       ['tier', tier],
+      ['encrypted', 'nip44'],
       ['algo', 'secp256k1'],
       ['L', PROTOCOL_LABEL],
       ['l', 'share', PROTOCOL_LABEL],
@@ -35,16 +39,21 @@ export function buildVaultShareEvent(
 export function parseVaultShare(event: Record<string, unknown>): VaultShareData | null {
   if (event.kind !== KIND_VAULT_SHARE) return null;
 
-  const tags = event.tags as string[][] | undefined;
-  if (!tags) return null;
+  if (!Array.isArray(event.tags)) return null;
+  const tags = event.tags as unknown[];
+  if (!tags.every(t => Array.isArray(t))) return null;
+  const safeTags = tags as string[][];
 
-  const dTag = tags.find(t => t[0] === 'd');
+  const dTag = safeTags.find(t => t[0] === 'd');
   if (!dTag || !dTag[1]) return null;
 
-  const tierTag = tags.find(t => t[0] === 'tier');
-  const algoTag = tags.find(t => t[0] === 'algo');
+  const tierTag = safeTags.find(t => t[0] === 'tier');
+  const algoTag = safeTags.find(t => t[0] === 'algo');
 
   if (typeof event.pubkey !== 'string' || typeof event.content !== 'string') return null;
+
+  const algo = algoTag?.[1] ?? 'secp256k1';
+  if (algo !== 'secp256k1') return null;
 
   const colonIdx = dTag[1].indexOf(':');
   const epochId = colonIdx !== -1 ? dTag[1].slice(0, colonIdx) : dTag[1];
@@ -55,7 +64,7 @@ export function parseVaultShare(event: Record<string, unknown>): VaultShareData 
     epochId,
     ckHex: event.content,
     tier,
-    algorithm: (algoTag?.[1] ?? 'secp256k1') as CryptoAlgorithm,
+    algorithm: algo as CryptoAlgorithm,
   };
 }
 

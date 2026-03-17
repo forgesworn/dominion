@@ -56,17 +56,17 @@ describe('content key derivation', () => {
 
   it('rejects private key that is too short', () => {
     expect(() => deriveContentKey('aa'.repeat(16), TEST_EPOCH_ID, TEST_TIER))
-      .toThrow('Private key must be 32 bytes (64 hex chars)');
+      .toThrow('Private key must be 64 lowercase hex characters');
   });
 
   it('rejects private key that is too long', () => {
     expect(() => deriveContentKey('aa'.repeat(33), TEST_EPOCH_ID, TEST_TIER))
-      .toThrow('Private key must be 32 bytes (64 hex chars)');
+      .toThrow('Private key must be 64 lowercase hex characters');
   });
 
   it('rejects empty private key', () => {
     expect(() => deriveContentKey('', TEST_EPOCH_ID, TEST_TIER))
-      .toThrow('Private key must be 32 bytes (64 hex chars)');
+      .toThrow('Private key must be 64 lowercase hex characters');
   });
 
   it('uses UTC consistently — same instant produces same epoch regardless of input construction', () => {
@@ -74,5 +74,30 @@ describe('content key derivation', () => {
     const fromUTC = getEpochIdForDate(new Date(Date.UTC(2026, 0, 5)));
     const fromUTC2 = getEpochIdForDate(new Date(Date.UTC(2026, 0, 5, 23, 59, 59)));
     expect(fromUTC).toBe(fromUTC2);
+  });
+
+  it('rejects non-hex characters in private key', () => {
+    expect(() => deriveContentKey('zz'.repeat(32), TEST_EPOCH_ID, TEST_TIER))
+      .toThrow('Private key must be 64 lowercase hex characters');
+  });
+
+  it('rejects uppercase hex in private key', () => {
+    expect(() => deriveContentKey('AA'.repeat(32), TEST_EPOCH_ID, TEST_TIER))
+      .toThrow('Private key must be 64 lowercase hex characters');
+  });
+
+  it('rejects empty epoch ID', () => {
+    expect(() => deriveContentKey(TEST_PRIVKEY_HEX, '', TEST_TIER))
+      .toThrow('Epoch ID must not be empty');
+  });
+
+  it('rejects empty tier', () => {
+    expect(() => deriveContentKey(TEST_PRIVKEY_HEX, TEST_EPOCH_ID, ''))
+      .toThrow('Tier must not be empty');
+  });
+
+  it('rejects invalid Date', () => {
+    expect(() => getEpochIdForDate(new Date('invalid')))
+      .toThrow('Invalid date');
   });
 });

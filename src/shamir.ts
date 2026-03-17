@@ -37,6 +37,7 @@ export function splitSecret(secret: Uint8Array, totalShares: number, threshold: 
   if (threshold > totalShares) throw new Error('Threshold cannot exceed total shares');
   if (threshold < 2) throw new Error('Threshold must be at least 2');
   if (totalShares < 2) throw new Error('Total shares must be at least 2');
+  if (totalShares > 255) throw new Error('Total shares cannot exceed 255 (GF(256) limit)');
 
   const shares: CKShare[] = Array.from({ length: totalShares }, (_, i) => ({
     index: i + 1,
@@ -69,6 +70,9 @@ export function splitSecret(secret: Uint8Array, totalShares: number, threshold: 
  */
 export function combineShares(shares: CKShare[]): Uint8Array {
   if (shares.length < 2) throw new Error('Need at least 2 shares to reconstruct');
+
+  const indices = new Set(shares.map(s => s.index));
+  if (indices.size !== shares.length) throw new Error('Duplicate share indices detected');
 
   const len = shares[0].data.length;
   for (let i = 1; i < shares.length; i++) {

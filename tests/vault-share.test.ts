@@ -14,6 +14,7 @@ describe('buildVaultShareEvent', () => {
     expect(event.tags).toContainEqual(['d', '2026-W09:family']);
     expect(event.tags).toContainEqual(['p', RECIPIENT]);
     expect(event.tags).toContainEqual(['tier', 'family']);
+    expect(event.tags).toContainEqual(['encrypted', 'nip44']);
     expect(event.tags).toContainEqual(['algo', 'secp256k1']);
     expect(event.tags).toContainEqual(['L', 'dominion']);
     expect(event.tags).toContainEqual(['l', 'share', 'dominion']);
@@ -80,6 +81,21 @@ describe('parseVaultShare', () => {
     event.tags = event.tags.filter(t => t[0] !== 'tier');
     const parsed = parseVaultShare(event);
     expect(parsed!.tier).toBe('family');
+  });
+
+  it('returns null for unknown algorithm', () => {
+    const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
+    const algoIdx = event.tags.findIndex(t => t[0] === 'algo');
+    event.tags[algoIdx] = ['algo', 'rsa-2048'];
+    expect(parseVaultShare(event)).toBeNull();
+  });
+
+  it('returns null for non-array tag elements', () => {
+    const malformed = {
+      kind: 30480, pubkey: AUTHOR, content: CK_HEX, created_at: 0,
+      tags: [123, null, ['d', '2026-W09:family']],
+    };
+    expect(parseVaultShare(malformed)).toBeNull();
   });
 });
 

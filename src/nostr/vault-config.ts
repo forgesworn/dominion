@@ -30,10 +30,18 @@ export function buildVaultConfigEvent(authorPubkey: string, config: DominionConf
 export function parseVaultConfig(contentJson: string): DominionConfig | null {
   try {
     const obj = JSON.parse(contentJson);
-    if (!obj || typeof obj !== 'object') return null;
-    if (!obj.tiers || typeof obj.tiers !== 'object') return null;
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+    if (!obj.tiers || typeof obj.tiers !== 'object' || Array.isArray(obj.tiers)) return null;
     if (!Array.isArray(obj.individualGrants)) return null;
     if (!Array.isArray(obj.revokedPubkeys)) return null;
+
+    const DANGEROUS_KEYS = ['__proto__', 'constructor', 'prototype'];
+    if (Object.keys(obj.tiers).some((k: string) => DANGEROUS_KEYS.includes(k))) return null;
+
+    for (const [, v] of Object.entries(obj.tiers)) {
+      if (v !== 'auto' && !Array.isArray(v)) return null;
+    }
+
     return obj as DominionConfig;
   } catch {
     return null;

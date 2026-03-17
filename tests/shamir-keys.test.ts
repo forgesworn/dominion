@@ -86,4 +86,13 @@ describe('encodeCKShare / decodeCKShare', () => {
     expect(() => decodeCKShare('1:gg')).toThrow('bad hex data');
     expect(() => decodeCKShare('1:abc')).toThrow('bad hex data');
   });
+
+  it('rejects share index > 255 (GF(256) limit)', () => {
+    expect(() => decodeCKShare('256:aabb')).toThrow('bad index');
+  });
+
+  it('accepts share index 255 (boundary)', () => {
+    const decoded = decodeCKShare('255:aabb');
+    expect(decoded.index).toBe(255);
+  });
 });

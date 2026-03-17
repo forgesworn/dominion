@@ -83,4 +83,20 @@ describe('Shamir secret sharing', () => {
     const share2 = { index: 2, data: new Uint8Array([4, 5]) };
     expect(() => combineShares([share1, share2])).toThrow('All shares must have equal data length');
   });
+
+  it('rejects totalShares > 255 (GF(256) limit)', () => {
+    expect(() => splitSecret(new Uint8Array([42]), 256, 2))
+      .toThrow('Total shares cannot exceed 255 (GF(256) limit)');
+  });
+
+  it('accepts totalShares = 255 (GF(256) boundary)', () => {
+    const shares = splitSecret(new Uint8Array([42]), 255, 2);
+    expect(shares).toHaveLength(255);
+  });
+
+  it('rejects duplicate share indices', () => {
+    const share1 = { index: 1, data: new Uint8Array([10]) };
+    const share2 = { index: 1, data: new Uint8Array([20]) };
+    expect(() => combineShares([share1, share2])).toThrow('Duplicate share indices detected');
+  });
 });

@@ -140,4 +140,19 @@ describe('edge cases', () => {
     const updated = removeFromTier(config, 'connections', 'pubkey1');
     expect(updated.tiers.connections).toBe('auto');
   });
+
+  it('rejects __proto__ as tier name', () => {
+    const config = defaultConfig();
+    expect(() => addToTier(config, '__proto__', 'pubkey1')).toThrow('Reserved tier name');
+  });
+
+  it('rejects constructor as tier name', () => {
+    const config = defaultConfig();
+    expect(() => addToTier(config, 'constructor', 'pubkey1')).toThrow('Reserved tier name');
+  });
+
+  it('rejects prototype as tier name', () => {
+    const config = defaultConfig();
+    expect(() => addToTier(config, 'prototype', 'pubkey1')).toThrow('Reserved tier name');
+  });
 });

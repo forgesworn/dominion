@@ -1,5 +1,7 @@
 import type { DominionConfig } from './types.js';
 
+const RESERVED_KEYS = ['__proto__', 'constructor', 'prototype'];
+
 /** Create a default vault configuration. */
 export function defaultConfig(): DominionConfig {
   return {
@@ -14,6 +16,7 @@ export function defaultConfig(): DominionConfig {
 
 /** Add a pubkey to a tier. Creates the tier if it doesn't exist. */
 export function addToTier(config: DominionConfig, tier: string, pubkey: string): DominionConfig {
+  if (RESERVED_KEYS.includes(tier)) throw new Error('Reserved tier name');
   const currentTier = config.tiers[tier];
   const list = Array.isArray(currentTier) ? currentTier : [];
   if (list.includes(pubkey)) return config;

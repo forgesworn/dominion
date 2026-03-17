@@ -66,6 +66,24 @@ describe('parseVaultConfig', () => {
     expect(parseVaultConfig('[]')).toBeNull();
   });
 
+  it('returns null for __proto__ key in tiers (prototype pollution)', () => {
+    expect(parseVaultConfig('{"tiers": {"__proto__": ["attacker"]}, "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
+  });
+
+  it('returns null for constructor key in tiers', () => {
+    expect(parseVaultConfig('{"tiers": {"constructor": ["attacker"]}, "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
+  });
+
+  it('returns null for non-array, non-auto tier value', () => {
+    expect(parseVaultConfig('{"tiers": {"family": 42}, "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
+  });
+
+  it('accepts auto tier value', () => {
+    const parsed = parseVaultConfig('{"tiers": {"connections": "auto"}, "individualGrants": [], "revokedPubkeys": []}');
+    expect(parsed).not.toBeNull();
+    expect(parsed!.tiers.connections).toBe('auto');
+  });
+
   it('roundtrips through build and parse', () => {
     let config = defaultConfig();
     config = addToTier(config, 'family', 'pubkey1');

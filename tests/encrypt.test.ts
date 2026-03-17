@@ -94,4 +94,24 @@ describe('blob encryption', () => {
     const corrupted = ciphertext.slice(0, 10) + 'X' + ciphertext.slice(11);
     expect(() => decrypt(corrupted, ck)).toThrow();
   });
+
+  it('rejects 16-byte key (prevents silent AES-128 downgrade)', () => {
+    expect(() => encryptBlob(new Uint8Array([1, 2, 3]), new Uint8Array(16)))
+      .toThrow('Content key must be 32 bytes');
+  });
+
+  it('rejects 0-byte key', () => {
+    expect(() => encryptBlob(new Uint8Array([1, 2, 3]), new Uint8Array(0)))
+      .toThrow('Content key must be 32 bytes');
+  });
+
+  it('rejects wrong-length key on decrypt', () => {
+    expect(() => decryptBlob(new Uint8Array(30), new Uint8Array(16)))
+      .toThrow('Content key must be 32 bytes');
+  });
+
+  it('rejects ciphertext shorter than IV + tag minimum', () => {
+    expect(() => decryptBlob(new Uint8Array(20), ck))
+      .toThrow('Ciphertext too short');
+  });
 });

@@ -41,6 +41,7 @@ export function decrypt(ciphertext: string, ck: Uint8Array): string {
  * Returns Uint8Array(iv || ciphertext || tag).
  */
 export function encryptBlob(data: Uint8Array, ck: Uint8Array): Uint8Array {
+  if (ck.length !== 32) throw new Error('Content key must be 32 bytes');
   const iv = randomBytes(IV_LENGTH);
   const aes = gcm(ck, iv);
   const encrypted = aes.encrypt(data);
@@ -54,6 +55,8 @@ export function encryptBlob(data: Uint8Array, ck: Uint8Array): Uint8Array {
  * Decrypt a Uint8Array(iv || ciphertext || tag) with a 32-byte Content Key.
  */
 export function decryptBlob(encrypted: Uint8Array, ck: Uint8Array): Uint8Array {
+  if (ck.length !== 32) throw new Error('Content key must be 32 bytes');
+  if (encrypted.length < IV_LENGTH + 16) throw new Error('Ciphertext too short');
   const iv = encrypted.slice(0, IV_LENGTH);
   const ciphertext = encrypted.slice(IV_LENGTH);
   const aes = gcm(ck, iv);
