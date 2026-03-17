@@ -20,6 +20,8 @@ export function buildVaultShareEvent(
   if (!HEX64_RE.test(authorPubkey)) throw new Error('Invalid author pubkey');
   if (!HEX64_RE.test(recipientPubkey)) throw new Error('Invalid recipient pubkey');
   if (!HEX64_RE.test(ckHex)) throw new Error('Invalid content key hex');
+  if (!epochId) throw new Error('Epoch ID must not be empty');
+  if (!tier) throw new Error('Tier must not be empty');
   return {
     kind: KIND_VAULT_SHARE,
     pubkey: authorPubkey,
@@ -56,6 +58,7 @@ export function parseVaultShare(event: Record<string, unknown>): VaultShareData 
   const algoTag = safeTags.find(t => t[0] === 'algo');
 
   if (typeof event.pubkey !== 'string' || typeof event.content !== 'string') return null;
+  if (!HEX64_RE.test(event.content)) return null;
 
   const algo = algoTag?.[1] ?? 'secp256k1';
   if (algo !== 'secp256k1') return null;
@@ -83,6 +86,7 @@ export function buildVaultShareFilter(
   epochId?: string,
   tier?: string
 ): Record<string, unknown> {
+  if (!HEX64_RE.test(authorPubkey)) throw new Error('Invalid author pubkey');
   const filter: Record<string, unknown> = {
     kinds: [KIND_VAULT_SHARE],
     authors: [authorPubkey],

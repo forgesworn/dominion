@@ -41,6 +41,16 @@ describe('buildVaultShareEvent', () => {
     expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, 'bad', '2026-W09', 'family'))
       .toThrow('Invalid content key hex');
   });
+
+  it('rejects empty epochId', () => {
+    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '', 'family'))
+      .toThrow('Epoch ID must not be empty');
+  });
+
+  it('rejects empty tier', () => {
+    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', ''))
+      .toThrow('Tier must not be empty');
+  });
 });
 
 describe('parseVaultShare', () => {
@@ -131,6 +141,22 @@ describe('parseVaultShare', () => {
     expect(parsed!.epochId).toBe('2026-W09');
     expect(parsed!.tier).toBe('unknown');
   });
+
+  it('returns null for non-hex content (ckHex validation)', () => {
+    const malformed = {
+      kind: 30480, pubkey: AUTHOR, content: 'not-valid-hex', created_at: 0,
+      tags: [['d', '2026-W09:family']],
+    };
+    expect(parseVaultShare(malformed)).toBeNull();
+  });
+
+  it('returns null for wrong-length hex content', () => {
+    const malformed = {
+      kind: 30480, pubkey: AUTHOR, content: 'aabb', created_at: 0,
+      tags: [['d', '2026-W09:family']],
+    };
+    expect(parseVaultShare(malformed)).toBeNull();
+  });
 });
 
 describe('buildVaultShareFilter', () => {
@@ -158,5 +184,9 @@ describe('buildVaultShareFilter', () => {
     const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
     const dTag = event.tags.find(t => t[0] === 'd');
     expect((filter['#d'] as string[])[0]).toBe(dTag![1]);
+  });
+
+  it('rejects invalid author pubkey', () => {
+    expect(() => buildVaultShareFilter('bad')).toThrow('Invalid author pubkey');
   });
 });
