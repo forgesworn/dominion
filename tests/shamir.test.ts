@@ -99,4 +99,16 @@ describe('Shamir secret sharing', () => {
     const share2 = { index: 1, data: new Uint8Array([20]) };
     expect(() => combineShares([share1, share2])).toThrow('Duplicate share indices detected');
   });
+
+  it('rejects share index 0 in combineShares', () => {
+    const share1 = { index: 0, data: new Uint8Array([10]) };
+    const share2 = { index: 2, data: new Uint8Array([20]) };
+    expect(() => combineShares([share1, share2])).toThrow('Share index must be between 1 and 255');
+  });
+
+  it('rejects share index > 255 in combineShares', () => {
+    const share1 = { index: 1, data: new Uint8Array([10]) };
+    const share2 = { index: 300, data: new Uint8Array([20]) };
+    expect(() => combineShares([share1, share2])).toThrow('Share index must be between 1 and 255');
+  });
 });

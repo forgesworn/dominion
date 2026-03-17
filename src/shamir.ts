@@ -71,6 +71,9 @@ export function splitSecret(secret: Uint8Array, totalShares: number, threshold: 
 export function combineShares(shares: CKShare[]): Uint8Array {
   if (shares.length < 2) throw new Error('Need at least 2 shares to reconstruct');
 
+  for (const s of shares) {
+    if (s.index < 1 || s.index > 255) throw new Error('Share index must be between 1 and 255');
+  }
   const indices = new Set(shares.map(s => s.index));
   if (indices.size !== shares.length) throw new Error('Duplicate share indices detected');
 
