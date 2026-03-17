@@ -2,6 +2,14 @@
 
 Epoch-based encrypted access control for Nostr. Tiered audiences, key rotation, and revocable access — all on standard Nostr relays.
 
+<p align="center">
+  <a href="docs/dominion-explainer.svg">
+    <img src="docs/dominion-explainer.svg" alt="Dominion — interactive explainer (click to open)" width="700" />
+  </a>
+  <br />
+  <em>Interactive explainer — <a href="docs/dominion-explainer.svg">open in browser</a> and click to advance</em>
+</p>
+
 ## Install
 
 ```bash
