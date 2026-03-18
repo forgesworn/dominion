@@ -29,7 +29,7 @@ npm run clean       # rm -rf dist/
 Two-layer exports:
 
 - `dominion-protocol` — universal crypto primitives (HKDF, AES-GCM, Shamir, config)
-- `dominion-protocol/nostr` — Nostr event builders/parsers for kinds 30480 and 30481
+- `dominion-protocol/nostr` — Nostr event builders/parsers for kind 30480 (Vault Share) and NIP-78 kind 30078 (Vault Config)
 
 ## Dependencies
 

@@ -314,7 +314,7 @@ Independent of tiers. An author can grant CK access to any specific pubkey:
 
 ### Tier Membership
 
-Tier memberships are stored in the author's vault configuration event (kind 30481), self-encrypted. Tier changes take effect at the next epoch rotation:
+Tier memberships are stored in the author's vault configuration event (NIP-78, kind 30078), self-encrypted. Tier changes take effect at the next epoch rotation:
 
 - **Add member:** distribute current epoch CK immediately + include in future rotations
 - **Remove member:** stop distributing at next epoch rotation (forward-only revocation)
@@ -352,7 +352,7 @@ The revoked recipient retains any epoch CKs they already received. Content from 
 
 ### Revocation List
 
-Revoked pubkeys are tracked in the vault configuration event (kind 30481). During epoch rotation, the distribution loop skips any pubkey in the revocation list.
+Revoked pubkeys are tracked in the vault configuration event (NIP-78, kind 30078). During epoch rotation, the distribution loop skips any pubkey in the revocation list.
 
 ### True Revocation (Optional — Warden Relays)
 
@@ -400,16 +400,16 @@ A parameterised replaceable event containing an epoch CK for a specific recipien
 - Use the `d` tag (epoch ID) to match against `vault` tags on encrypted events
 - A newer event for the same `d` tag replaces the previous one (parameterised replaceable)
 
-### Kind 30481 — Vault Configuration
+### NIP-78 (Kind 30078) — Vault Configuration
 
-A replaceable event storing the author's vault settings. Self-encrypted (NIP-44 to own pubkey) — only the author can read it.
+A NIP-78 app-specific data event storing the author's vault settings. Self-encrypted (NIP-44 to own pubkey) — only the author can read it. Uses NIP-78 (kind 30078) with a namespaced `d` tag instead of a custom kind.
 
 ```jsonc
 {
-  "kind": 30481,
+  "kind": 30078,
   "pubkey": "<author_pubkey>",
   "tags": [
-    ["d", "vault-config"],
+    ["d", "dominion:vault-config"],
     ["encrypted", "nip44"],
     ["algo", "secp256k1"],
     ["L", "dominion"],
@@ -671,7 +671,7 @@ Dominion builds on existing Nostr primitives and introduces minimal new surface 
 | New element | Type | Purpose |
 |-------------|------|---------|
 | Kind 30480 | Parameterised replaceable event | CK share distribution |
-| Kind 30481 | Replaceable event | Vault configuration (self-encrypted) |
+| Kind 30078 (NIP-78) | App-specific data | Vault configuration (self-encrypted, `d: dominion:vault-config`) |
 | `["vault", "<epoch_id>", "<tier>"]` tag | Content event tag | Signals Dominion encryption, epoch, and tier for CK lookup |
 | `["algo", "<algorithm>"]` tag | Protocol event tag | Identifies asymmetric algorithm (default: `secp256k1`). Enables post-quantum migration. |
 | `["L", "dominion"]` / `["l", "...", "dominion"]` | Label tags | Protocol namespace |
