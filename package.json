@@ -15,7 +15,10 @@
       "types": "./dist/nostr/index.d.ts"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -24,23 +27,33 @@
     "clean": "rm -rf dist"
   },
   "keywords": [
-    "nostr", "encryption", "access-control", "epoch", "aes-gcm",
-    "hkdf", "shamir", "tiered-access", "content-keys", "dominion"
+    "nostr",
+    "encryption",
+    "access-control",
+    "epoch",
+    "aes-gcm",
+    "hkdf",
+    "shamir",
+    "tiered-access",
+    "content-keys",
+    "dominion"
   ],
   "sideEffects": false,
   "license": "MIT",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "repository": {
     "type": "git",
     "url": "git@github.com:TheCryptoDonkey/dominion.git"
   },
   "dependencies": {
-    "@noble/hashes": "^1.7.1",
-    "@noble/ciphers": "^2.1.0"
+    "@noble/ciphers": "^2.1.0",
+    "@noble/hashes": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.0"
   }
 }

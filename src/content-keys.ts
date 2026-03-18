@@ -1,6 +1,6 @@
-import { hkdf } from '@noble/hashes/hkdf';
-import { sha256 } from '@noble/hashes/sha2';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { hkdf } from '@noble/hashes/hkdf.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { CK_SALT } from './constants.js';
 
 /**

@@ -1,4 +1,4 @@
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { splitSecret, combineShares } from './shamir.js';
 import type { CKShare } from './types.js';
 
