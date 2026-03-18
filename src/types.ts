@@ -1,4 +1,4 @@
-/** Vault configuration — stored as self-encrypted kind 30481. */
+/** Vault configuration — stored as self-encrypted NIP-78 (kind 30078). */
 export interface DominionConfig {
   tiers: {
     family: string[];

@@ -5,12 +5,12 @@ import { defaultConfig, addToTier, addIndividualGrant } from '../src/config.js';
 const AUTHOR = 'aa'.repeat(32);
 
 describe('buildVaultConfigEvent', () => {
-  it('creates a kind 30481 event with plaintext JSON content', () => {
+  it('creates a NIP-78 (kind 30078) event with plaintext JSON content', () => {
     const config = defaultConfig();
     const event = buildVaultConfigEvent(AUTHOR, config);
-    expect(event.kind).toBe(30481);
+    expect(event.kind).toBe(30078);
     expect(event.pubkey).toBe(AUTHOR);
-    expect(event.tags).toContainEqual(['d', 'vault-config']);
+    expect(event.tags).toContainEqual(['d', 'dominion:vault-config']);
     expect(event.tags).toContainEqual(['encrypted', 'nip44']);
     expect(event.tags).toContainEqual(['algo', 'secp256k1']);
     expect(event.tags).toContainEqual(['L', 'dominion']);
@@ -111,9 +111,9 @@ describe('buildVaultConfigFilter', () => {
   it('creates a filter for vault config events', () => {
     const filter = buildVaultConfigFilter(AUTHOR);
     expect(filter).toEqual({
-      kinds: [30481],
+      kinds: [30078],
       authors: [AUTHOR],
-      '#d': ['vault-config'],
+      '#d': ['dominion:vault-config'],
     });
   });
 });

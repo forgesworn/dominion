@@ -2,7 +2,7 @@ import { KIND_VAULT_CONFIG, PROTOCOL_LABEL } from '../constants.js';
 import type { DominionConfig, NostrEvent } from '../types.js';
 
 /**
- * Build a kind 30481 vault config event.
+ * Build a NIP-78 (kind 30078) vault config event.
  *
  * IMPORTANT: Returns an UNENCRYPTED event with plaintext JSON in `content`.
  * The caller is responsible for NIP-44 self-encryption before publishing.
@@ -13,7 +13,7 @@ export function buildVaultConfigEvent(authorPubkey: string, config: DominionConf
     pubkey: authorPubkey,
     created_at: Math.floor(Date.now() / 1000),
     tags: [
-      ['d', 'vault-config'],
+      ['d', 'dominion:vault-config'],
       ['encrypted', 'nip44'],
       ['algo', 'secp256k1'],
       ['L', PROTOCOL_LABEL],
@@ -64,6 +64,6 @@ export function buildVaultConfigFilter(authorPubkey: string): Record<string, unk
   return {
     kinds: [KIND_VAULT_CONFIG],
     authors: [authorPubkey],
-    '#d': ['vault-config'],
+    '#d': ['dominion:vault-config'],
   };
 }
