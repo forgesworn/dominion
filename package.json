@@ -48,7 +48,11 @@
     "dominion"
   ],
   "sideEffects": false,
-  "author": "forgesworn",
+  "author": "TheCryptoDonkey",
+  "contributors": [
+    "TheCryptoDonkey (https://github.com/TheCryptoDonkey)",
+    "decented (https://github.com/decented)"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=18"
