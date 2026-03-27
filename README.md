@@ -1,6 +1,15 @@
 # Dominion Protocol
 
-Epoch-based encrypted access control for Nostr. Tiered audiences, key rotation, and revocable access — all on standard Nostr relays.
+**Nostr:** [`npub1mgvlrnf5hm9yf0n5mf9nqmvarhvxkc6remu5ec3vf8r0txqkuk7su0e7q2`](https://njump.me/npub1mgvlrnf5hm9yf0n5mf9nqmvarhvxkc6remu5ec3vf8r0txqkuk7su0e7q2)
+
+> Your content. Your keys. Your rules. No platform required.
+
+[![npm](https://img.shields.io/npm/v/dominion-protocol)](https://www.npmjs.com/package/dominion-protocol)
+[![CI](https://github.com/forgesworn/dominion/actions/workflows/ci.yml/badge.svg)](https://github.com/forgesworn/dominion/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-native-blue)](https://www.typescriptlang.org/)
+
+[Protocol Spec](spec/protocol.md) · [NIP Draft](nip-draft.md) · [LLM Reference](llms.txt) · [Contributing](CONTRIBUTING.md)
 
 <p align="center">
   <a href="docs/dominion-explainer.svg">
@@ -10,34 +19,93 @@ Epoch-based encrypted access control for Nostr. Tiered audiences, key rotation, 
   <em>Interactive explainer — <a href="docs/dominion-explainer.svg">open in browser</a> and click to advance</em>
 </p>
 
+## The Problem
+
+Nostr content is either public or NIP-44 encrypted to specific recipients. There is no native mechanism for:
+
+- **Audience tiers** — different groups seeing different content (family, close friends, subscribers)
+- **Revocable access** — removing a recipient's ability to decrypt future content
+- **Scalable encryption** — encrypting to hundreds of recipients without per-recipient encryption operations
+
+Per-recipient NIP-44 encryption works for DMs but doesn't scale:
+
+| Recipients | NIP-44 approach | Dominion |
+|-----------|----------------|----------|
+| 1 | 1 encryption | 1 encryption + 1 key share |
+| 10 | 10 encryptions | 1 encryption + 10 key shares |
+| 100 | 100 encryptions | 1 encryption + 100 key shares |
+| 1,000 | 1,000 encryptions | 1 encryption + 1,000 key shares |
+
+Content is encrypted once with an epoch-based Content Key. Only the lightweight key distribution scales with audience size.
+
+## How It Works
+
+Dominion introduces **vaults** — encrypted content containers on standard Nostr relays:
+
+1. **Derive** a Content Key (CK) from your private key, the current epoch, and the tier
+2. **Encrypt** your content with the CK (AES-256-GCM) and publish to any relay
+3. **Distribute** the CK to each tier member via NIP-44 encrypted, NIP-59 gift-wrapped events
+4. **Rotate** — new epoch, new CK. Revoked members don't get the new key
+
+No custom relay software. No middleware. No platform. Just standard Nostr events and proven cryptography.
+
+## Use Cases
+
+| Use case | How Dominion helps |
+|----------|-------------------|
+| Creator paywall | Encrypt to paying subscribers; revoke on cancellation |
+| Family sharing | Private family tier; rotate keys weekly |
+| Close friends | Share selectively without making content public |
+| Institutional access | Tiered access with automatic key expiry |
+| Paid newsletters | One encryption operation, unlimited subscribers |
+
+For scenarios requiring instant revocation (custody disputes, institutional SLA), optional [warden relays](spec/protocol.md#13-warden-relays--optional-upgrade) provide true revocation using NIP-42 AUTH.
+
 ## Install
 
 ```bash
 npm install dominion-protocol
 ```
 
-## Usage
+## Quick Start
 
-### Content Key Derivation
+### Encrypt Content for a Tier
 
 ```typescript
-import { deriveContentKey, contentKeyToHex, getCurrentEpochId } from 'dominion-protocol';
+import { deriveContentKey, contentKeyToHex, getCurrentEpochId, encrypt, decrypt } from 'dominion-protocol';
 
+// Derive this week's Content Key for the "family" tier
 const epochId = getCurrentEpochId();  // e.g. "2026-W11"
 const ck = deriveContentKey(privateKeyHex, epochId, 'family');
-console.log(contentKeyToHex(ck));     // 64-char hex string
+
+// Encrypt content — one operation regardless of audience size
+const ciphertext = encrypt('Hello family!', ck);  // base64 string
+const plaintext = decrypt(ciphertext, ck);         // "Hello family!"
 ```
 
-### Encrypt / Decrypt
+### Manage Your Vault
 
 ```typescript
-import { encrypt, decrypt } from 'dominion-protocol';
+import { defaultConfig, addToTier, removeFromTier, revokePubkey } from 'dominion-protocol';
 
-const ciphertext = encrypt('Hello vault!', ck);  // base64 string
-const plaintext = decrypt(ciphertext, ck);        // "Hello vault!"
+let config = defaultConfig();
+config = addToTier(config, 'family', alicePubkey);
+config = addToTier(config, 'close_friends', bobPubkey);
+config = revokePubkey(config, formerFriendPubkey);  // excluded from next rotation
+```
+
+### Distribute Keys via Nostr
+
+```typescript
+import { buildVaultShareEvent } from 'dominion-protocol/nostr';
+
+// Build a kind 30480 vault share (caller handles NIP-44 + NIP-59 wrapping)
+const event = buildVaultShareEvent(authorPubkey, recipientPubkey, ckHex, epochId, 'family');
 ```
 
 ### Shamir Secret Sharing
+
+Split Content Keys across multiple parties or relays for redundancy:
 
 ```typescript
 import { splitCK, reconstructCK, encodeCKShare, decodeCKShare } from 'dominion-protocol';
@@ -49,29 +117,44 @@ const decoded = encoded.slice(0, 2).map(decodeCKShare);
 const recovered = reconstructCK(decoded);    // original CK
 ```
 
-### Vault Config
+## Architecture
 
-```typescript
-import { defaultConfig, addToTier, revokePubkey } from 'dominion-protocol';
+Two-layer exports — use what you need:
 
-let config = defaultConfig();
-config = addToTier(config, 'family', recipientPubkey);
-config = revokePubkey(config, formerFriendPubkey);
-```
+- **`dominion-protocol`** — universal crypto primitives. Pure functions, zero Nostr knowledge. Works anywhere.
+- **`dominion-protocol/nostr`** — Nostr event builders and parsers. Returns unsigned, unencrypted events. The caller handles NIP-44 encryption and NIP-59 gift wrapping.
 
-### Nostr Events
+### Cryptography
 
-```typescript
-import { buildVaultShareEvent } from 'dominion-protocol/nostr';
+| Primitive | Implementation |
+|-----------|---------------|
+| Key derivation | HKDF-SHA256 (`@noble/hashes`) |
+| Content encryption | AES-256-GCM, 12-byte random IV (`@noble/ciphers`) |
+| Secret sharing | Shamir over GF(256), irreducible polynomial 0x11b |
+| Epoch format | ISO 8601 weeks (`YYYY-Www`) |
 
-// Build a kind 30480 vault share (caller handles NIP-44 + NIP-59 wrapping)
-const event = buildVaultShareEvent(authorPubkey, recipientPubkey, ckHex, epochId, 'family');
-```
+### Nostr Integration
+
+| Kind | Type | Purpose |
+|------|------|---------|
+| 30480 | Parameterised replaceable | Vault share — epoch CK for a specific recipient |
+| 30078 | NIP-78 app-specific data | Vault config — self-encrypted tier memberships |
+
+Built on NIP-01, NIP-09, NIP-40, NIP-44, NIP-59, and NIP-78. No new cryptographic primitives.
 
 ## Protocol Spec
 
-See [spec/protocol.md](spec/protocol.md) for the full protocol specification.
+See [spec/protocol.md](spec/protocol.md) for the full protocol specification, including epoch rotation, tier management, individual grants, revocation, Lightning-gated access, and optional warden relay infrastructure.
 
 ## Licence
 
-MIT
+[MIT](LICENSE)
+
+## Support
+
+For issues and feature requests, see [GitHub Issues](https://github.com/forgesworn/dominion/issues).
+
+If you find Dominion useful, consider sending a tip:
+
+- **Lightning:** `thedonkey@strike.me`
+- **Nostr zaps:** `npub1mgvlrnf5hm9yf0n5mf9nqmvarhvxkc6remu5ec3vf8r0txqkuk7su0e7q2`
