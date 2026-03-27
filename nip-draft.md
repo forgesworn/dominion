@@ -65,13 +65,13 @@ CKs are derived deterministically using HKDF-SHA256:
 ```
 CK = HKDF-SHA256(
     ikm  = author's 32-byte private key,
-    salt = "vaulstr-ck-v1",
+    salt = "dominion-ck-v1",
     info = "epoch:{epoch_id}:tier:{tier_name}",
     len  = 32
 )
 ```
 
-The salt string `vaulstr-ck-v1` is a fixed protocol constant retained from the original design. Implementations MUST use this exact value to ensure interoperability.
+The salt string `dominion-ck-v1` is a fixed protocol constant. Implementations MUST use this exact value to ensure interoperability.
 
 The `info` string includes both epoch ID and tier name, ensuring that each epoch/tier combination produces a unique key. Authors can always re-derive any CK from their private key material — no key database is needed.
 

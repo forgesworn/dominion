@@ -146,7 +146,7 @@ CKs are derived deterministically using HKDF-SHA256:
 ```
 CK = HKDF-SHA256(
     ikm  = author's 32-byte private key (or key derived from mnemonic),
-    salt = "vaulstr-ck-v1",
+    salt = "dominion-ck-v1",
     info = "epoch:{epoch_id}:tier:{tier_name}",
     len  = 32
 )
@@ -326,7 +326,7 @@ Different tiers can use different epoch lengths. The CK derivation includes the 
 ```
 CK = HKDF-SHA256(
     ikm  = author's private key,
-    salt = "vaulstr-ck-v1",
+    salt = "dominion-ck-v1",
     info = "epoch:{epoch_id}:tier:{tier_name}",
     len  = 32
 )

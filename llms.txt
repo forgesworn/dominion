@@ -49,7 +49,7 @@ Constants:
 - KIND_VAULT_SHARE -- 30480
 - KIND_VAULT_CONFIG -- 30078 (NIP-78 app-specific data)
 - DOMINION_VERSION -- protocol version string
-- CK_SALT -- "vaulstr-ck-v1"
+- CK_SALT -- "dominion-ck-v1"
 - PROTOCOL_LABEL -- "dominion"
 - DEFAULT_EPOCH_LENGTH -- "weekly"
 
@@ -78,7 +78,7 @@ Vault config (kind 30078, NIP-78):
 
 ## Crypto Details
 
-- CK derivation: HKDF-SHA256(ikm=privkey, salt="vaulstr-ck-v1", info="epoch:{epochId}:tier:{tier}")
+- CK derivation: HKDF-SHA256(ikm=privkey, salt="dominion-ck-v1", info="epoch:{epochId}:tier:{tier}")
 - Encryption: AES-256-GCM, 12-byte random IV, output = base64(iv || ciphertext || tag)
 - Shamir: GF(256) with irreducible polynomial 0x11b, threshold 2-255
 - Epoch format: ISO 8601 weeks YYYY-Www

@@ -59,7 +59,7 @@ Two-layer exports:
 
 ## Crypto Details
 
-- **CK derivation:** `HKDF-SHA256(ikm=privkey, salt="vaulstr-ck-v1", info="epoch:{epochId}:tier:{tier}")`
+- **CK derivation:** `HKDF-SHA256(ikm=privkey, salt="dominion-ck-v1", info="epoch:{epochId}:tier:{tier}")`
 - **Encryption:** AES-256-GCM, 12-byte random IV, output = base64(iv || ciphertext || tag)
 - **Shamir:** GF(256) with irreducible polynomial 0x11b
 - **Epoch format:** ISO 8601 weeks `YYYY-Www`

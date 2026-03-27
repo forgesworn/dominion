@@ -5,7 +5,7 @@ import { CK_SALT } from './constants.js';
 
 /**
  * Derive a 32-byte Content Key for a given epoch and tier.
- * CK = HKDF-SHA256(ikm=privkey, salt="vaulstr-ck-v1", info="epoch:{epochId}:tier:{tier}")
+ * CK = HKDF-SHA256(ikm=privkey, salt="dominion-ck-v1", info="epoch:{epochId}:tier:{tier}")
  */
 export function deriveContentKey(privkeyHex: string, epochId: string, tier: string): Uint8Array {
   if (!/^[0-9a-f]{64}$/.test(privkeyHex)) throw new Error('Private key must be 64 lowercase hex characters');
