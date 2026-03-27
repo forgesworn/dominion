@@ -66,6 +66,7 @@
     "url": "https://github.com/forgesworn/dominion/issues"
   },
   "dependencies": {
+    "@forgesworn/shamir-core": "^1.0.0",
     "@noble/ciphers": "^2.1.0",
     "@noble/hashes": "^2.0.1"
   },

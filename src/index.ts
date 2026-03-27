@@ -28,8 +28,9 @@ export { contentKeyToHex, deriveContentKey, getCurrentEpochId, getEpochIdForDate
 // Encryption
 export { decrypt, decryptBlob, encrypt, encryptBlob } from './encrypt.js';
 
-// Shamir secret sharing
-export { combineShares, splitSecret } from './shamir.js';
+// Shamir secret sharing (re-exported from @forgesworn/shamir-core)
+export { splitSecret, reconstructSecret } from '@forgesworn/shamir-core';
+export type { ShamirShare } from '@forgesworn/shamir-core';
 
 // CK splitting
 export { decodeCKShare, encodeCKShare, reconstructCK, splitCK } from './shamir-keys.js';
