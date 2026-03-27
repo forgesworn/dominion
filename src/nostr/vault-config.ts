@@ -1,6 +1,8 @@
 import { KIND_VAULT_CONFIG, PROTOCOL_LABEL } from '../constants.js';
 import type { DominionConfig, NostrEvent } from '../types.js';
 
+const HEX64_RE = /^[0-9a-f]{64}$/;
+
 /**
  * Build a NIP-78 (kind 30078) vault config event.
  *
@@ -8,6 +10,7 @@ import type { DominionConfig, NostrEvent } from '../types.js';
  * The caller is responsible for NIP-44 self-encryption before publishing.
  */
 export function buildVaultConfigEvent(authorPubkey: string, config: DominionConfig): NostrEvent {
+  if (!HEX64_RE.test(authorPubkey)) throw new Error('Invalid author pubkey');
   return {
     kind: KIND_VAULT_CONFIG,
     pubkey: authorPubkey,
@@ -41,20 +44,22 @@ export function parseVaultConfig(contentJson: string): DominionConfig | null {
     for (const [, v] of Object.entries(obj.tiers)) {
       if (v === 'auto') continue;
       if (!Array.isArray(v)) return null;
-      if (!(v as unknown[]).every((e: unknown) => typeof e === 'string')) return null;
+      if (!(v as unknown[]).every((e: unknown) => typeof e === 'string' && HEX64_RE.test(e))) return null;
     }
 
     for (const g of obj.individualGrants) {
       if (!g || typeof g !== 'object') return null;
       if (typeof g.pubkey !== 'string' || typeof g.label !== 'string' || typeof g.grantedAt !== 'number') return null;
+      if (!HEX64_RE.test(g.pubkey)) return null;
     }
 
-    if (!obj.revokedPubkeys.every((p: unknown) => typeof p === 'string')) return null;
+    if (!obj.revokedPubkeys.every((p: unknown) => typeof p === 'string' && HEX64_RE.test(p))) return null;
 
     // Validate optional epochConfig values
     const VALID_EPOCH_LENGTHS = ['daily', 'weekly', 'monthly'];
     if (obj.epochConfig !== undefined) {
       if (!obj.epochConfig || typeof obj.epochConfig !== 'object' || Array.isArray(obj.epochConfig)) return null;
+      if (Object.keys(obj.epochConfig).some((k: string) => DANGEROUS_KEYS.includes(k))) return null;
       for (const v of Object.values(obj.epochConfig)) {
         if (!VALID_EPOCH_LENGTHS.includes(v as string)) return null;
       }
@@ -76,6 +81,7 @@ export function parseVaultConfig(contentJson: string): DominionConfig | null {
  * Build a Nostr filter for vault config events.
  */
 export function buildVaultConfigFilter(authorPubkey: string): Record<string, unknown> {
+  if (!HEX64_RE.test(authorPubkey)) throw new Error('Invalid author pubkey');
   return {
     kinds: [KIND_VAULT_CONFIG],
     authors: [authorPubkey],

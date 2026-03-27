@@ -102,4 +102,16 @@ describe('encodeCKShare / decodeCKShare', () => {
     expect(() => decodeCKShare(`1:${'aa'.repeat(16)}`)).toThrow('data must be 32 bytes');
     expect(() => decodeCKShare(`1:${'aa'.repeat(33)}`)).toThrow('data must be 32 bytes');
   });
+
+  it('rejects decimal index like "1.5"', () => {
+    expect(() => decodeCKShare(`1.5:${'aa'.repeat(32)}`)).toThrow('bad index');
+  });
+
+  it('rejects negative index', () => {
+    expect(() => decodeCKShare(`-1:${'aa'.repeat(32)}`)).toThrow('bad index');
+  });
+
+  it('rejects non-numeric index', () => {
+    expect(() => decodeCKShare(`foo:${'aa'.repeat(32)}`)).toThrow('bad index');
+  });
 });

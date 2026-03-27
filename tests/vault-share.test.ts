@@ -172,6 +172,28 @@ describe('parseVaultShare', () => {
     };
     expect(parseVaultShare(malformed)).toBeNull();
   });
+
+  it('returns null for non-hex pubkey in event', () => {
+    const malformed = {
+      kind: 30480,
+      pubkey: 'not-a-valid-hex-pubkey',
+      content: CK_HEX,
+      created_at: 0,
+      tags: [['d', '2026-W09:family']],
+    };
+    expect(parseVaultShare(malformed)).toBeNull();
+  });
+
+  it('returns null for short pubkey in event', () => {
+    const malformed = {
+      kind: 30480,
+      pubkey: 'aabb',
+      content: CK_HEX,
+      created_at: 0,
+      tags: [['d', '2026-W09:family']],
+    };
+    expect(parseVaultShare(malformed)).toBeNull();
+  });
 });
 
 describe('buildVaultShareFilter', () => {

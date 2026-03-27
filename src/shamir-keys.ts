@@ -34,6 +34,7 @@ export function decodeCKShare(encoded: string): CKShare {
   const indexStr = encoded.slice(0, colonIdx);
   const hexStr = encoded.slice(colonIdx + 1);
 
+  if (!/^\d+$/.test(indexStr)) throw new Error('Invalid CK share: bad index');
   const index = parseInt(indexStr, 10);
   if (Number.isNaN(index) || index < 1 || index > 255) throw new Error('Invalid CK share: bad index');
 

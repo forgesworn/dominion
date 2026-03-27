@@ -11,6 +11,8 @@ export function deriveContentKey(privkeyHex: string, epochId: string, tier: stri
   if (!/^[0-9a-f]{64}$/.test(privkeyHex)) throw new Error('Private key must be 64 lowercase hex characters');
   if (!epochId) throw new Error('Epoch ID must not be empty');
   if (!tier) throw new Error('Tier must not be empty');
+  if (epochId.includes(':tier:')) throw new Error('Epoch ID must not contain ":tier:" delimiter');
+  if (tier.includes(':')) throw new Error('Tier must not contain colons');
   const ikm = hexToBytes(privkeyHex);
   const salt = new TextEncoder().encode(CK_SALT);
   const info = new TextEncoder().encode(`epoch:${epochId}:tier:${tier}`);
