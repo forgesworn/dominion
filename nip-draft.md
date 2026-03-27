@@ -6,7 +6,7 @@ Epoch-Based Encrypted Content Access (Dominion)
 
 `draft` `optional`
 
-Authors: [forgesworn](https://github.com/forgesworn), [decented](https://github.com/decented)
+Authors: [TheCryptoDonkey](https://github.com/TheCryptoDonkey), [decented](https://github.com/decented)
 
 This NIP defines a mechanism for encrypting Nostr content with epoch-based Content Keys (CKs) and distributing those keys to tiered audiences via gift-wrapped events. It enables revocable, scalable content access control on standard Nostr relays without custom relay software or new cryptographic primitives.
 
@@ -71,6 +71,8 @@ CK = HKDF-SHA256(
 )
 ```
 
+The salt string `vaulstr-ck-v1` is a fixed protocol constant retained from the original design. Implementations MUST use this exact value to ensure interoperability.
+
 The `info` string includes both epoch ID and tier name, ensuring that each epoch/tier combination produces a unique key. Authors can always re-derive any CK from their private key material — no key database is needed.
 
 ### Epoch ID Format
@@ -122,7 +124,7 @@ The tier name in the `vault` tag is visible to relay operators. For privacy-sens
 
 ### Kind 30480 — Vault Share
 
-A parameterised replaceable event containing an epoch CK for a specific recipient. This event MUST be NIP-44 encrypted to the recipient's pubkey, sealed in a kind 13 event, and gift-wrapped in a kind 1059 event (NIP-59) before publishing.
+A parameterized replaceable event containing an epoch CK for a specific recipient. This event MUST be NIP-44 encrypted to the recipient's pubkey, sealed in a kind 13 event, and gift-wrapped in a kind 1059 event (NIP-59) before publishing.
 
 Inner event (before gift-wrapping):
 
@@ -147,7 +149,7 @@ Inner event (before gift-wrapping):
 
 | Tag | Status | Description |
 |-----|--------|-------------|
-| `d` | REQUIRED | `{epoch_id}:{tier}` — parameterised replaceable identifier |
+| `d` | REQUIRED | `{epoch_id}:{tier}` — parameterized replaceable identifier |
 | `p` | REQUIRED | Recipient pubkey |
 | `tier` | REQUIRED | Audience tier name |
 | `algo` | REQUIRED | Asymmetric algorithm used (`secp256k1`) |
@@ -158,7 +160,7 @@ The `content` field contains the CK as a 64-character lowercase hex string.
 
 **Why a dedicated kind?** The kind 30480 event is always gift-wrapped (kind 1059) on the wire, so relays never see it directly. However, a registered kind is needed because:
 
-1. **Parameterised replaceability** — the `d` tag (`epoch:tier`) enables newer vault shares to replace older ones for the same epoch/tier/recipient, preventing stale key accumulation
+1. **Parameterized replaceability** — the `d` tag (`epoch:tier`) enables newer vault shares to replace older ones for the same epoch/tier/recipient, preventing stale key accumulation
 2. **Client-side filtering** — after unwrapping, clients need to distinguish vault shares from other gift-wrapped content (DMs, sealed events) by kind number
 3. **Algorithm tagging** — the `algo` tag on kind 30480 enables future migration to post-quantum algorithms without breaking backward compatibility
 
@@ -277,6 +279,10 @@ Dominion splits knowledge across different entities:
 | Recipient | CK, decrypted content | Other recipients' CKs |
 
 Content events contain no recipient information. Recipients are managed entirely through the separate gift-wrap channel.
+
+## Expiration
+
+Implementations MAY use NIP-40 `expiration` tags on outer gift-wrap events to facilitate relay cleanup of expired epoch shares. The inner kind 30480 event SHOULD NOT carry an expiration tag, as it is never seen by relays directly.
 
 ## Relationship to Existing NIPs
 

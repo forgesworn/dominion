@@ -119,4 +119,16 @@ describe('content key derivation', () => {
     const epoch = getEpochIdForDate(new Date(Date.UTC(2027, 0, 1)));
     expect(epoch).toBe('2026-W53');
   });
+
+  it('rejects epochId containing ":tier:" delimiter (HKDF info collision prevention)', () => {
+    expect(() => deriveContentKey(TEST_PRIVKEY_HEX, '2026-W09:tier:family', 'x')).toThrow(
+      'Epoch ID must not contain ":tier:" delimiter',
+    );
+  });
+
+  it('rejects tier containing colons (HKDF info collision prevention)', () => {
+    expect(() => deriveContentKey(TEST_PRIVKEY_HEX, TEST_EPOCH_ID, 'tier:with:colons')).toThrow(
+      'Tier must not contain colons',
+    );
+  });
 });

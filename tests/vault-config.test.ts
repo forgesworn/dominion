@@ -3,6 +3,8 @@ import { addIndividualGrant, addToTier, defaultConfig } from '../src/config.js';
 import { buildVaultConfigEvent, buildVaultConfigFilter, parseVaultConfig } from '../src/nostr/vault-config.js';
 
 const AUTHOR = 'aa'.repeat(32);
+const PUBKEY1 = 'cc'.repeat(32);
+const PUBKEY2 = 'dd'.repeat(32);
 
 describe('buildVaultConfigEvent', () => {
   it('creates a NIP-78 (kind 30078) event with plaintext JSON content', () => {
@@ -27,15 +29,15 @@ describe('buildVaultConfigEvent', () => {
 describe('parseVaultConfig', () => {
   it('parses valid JSON into DominionConfig', () => {
     let config = defaultConfig();
-    config = addToTier(config, 'family', 'pubkey1');
-    config = addIndividualGrant(config, 'pubkey2', 'Tutor');
+    config = addToTier(config, 'family', PUBKEY1);
+    config = addIndividualGrant(config, PUBKEY2, 'Tutor');
 
     const json = JSON.stringify(config);
     const parsed = parseVaultConfig(json);
     expect(parsed).not.toBeNull();
-    expect(parsed!.tiers.family).toContain('pubkey1');
+    expect(parsed!.tiers.family).toContain(PUBKEY1);
     expect(parsed!.individualGrants).toHaveLength(1);
-    expect(parsed!.individualGrants[0].pubkey).toBe('pubkey2');
+    expect(parsed!.individualGrants[0].pubkey).toBe(PUBKEY2);
   });
 
   it('returns null for invalid JSON', () => {
@@ -166,10 +168,68 @@ describe('parseVaultConfig', () => {
 
   it('roundtrips through build and parse', () => {
     let config = defaultConfig();
-    config = addToTier(config, 'family', 'pubkey1');
+    config = addToTier(config, 'family', PUBKEY1);
     const event = buildVaultConfigEvent(AUTHOR, config);
     const parsed = parseVaultConfig(event.content);
-    expect(parsed!.tiers.family).toContain('pubkey1');
+    expect(parsed!.tiers.family).toContain(PUBKEY1);
+  });
+
+  it('returns null for __proto__ key in epochConfig (prototype pollution)', () => {
+    expect(
+      parseVaultConfig(
+        '{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "epochConfig": {"__proto__": "weekly"}}',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null for constructor key in epochConfig (prototype pollution)', () => {
+    expect(
+      parseVaultConfig(
+        '{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "epochConfig": {"constructor": "daily"}}',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null for non-hex pubkeys in tier arrays', () => {
+    expect(
+      parseVaultConfig('{"tiers": {"family": ["not-a-hex-pubkey"]}, "individualGrants": [], "revokedPubkeys": []}'),
+    ).toBeNull();
+  });
+
+  it('returns null for non-hex pubkey in individualGrants', () => {
+    expect(
+      parseVaultConfig(
+        '{"tiers": {}, "individualGrants": [{"pubkey": "short", "label": "Test", "grantedAt": 1000}], "revokedPubkeys": []}',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null for non-hex pubkey in revokedPubkeys', () => {
+    expect(parseVaultConfig('{"tiers": {}, "individualGrants": [], "revokedPubkeys": ["not-hex"]}')).toBeNull();
+  });
+
+  it('accepts valid hex pubkeys throughout', () => {
+    const validPubkey = 'ab'.repeat(32);
+    const parsed = parseVaultConfig(
+      `{"tiers": {"family": ["${validPubkey}"]}, "individualGrants": [{"pubkey": "${validPubkey}", "label": "Test", "grantedAt": 1000}], "revokedPubkeys": ["${validPubkey}"]}`,
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed!.tiers.family).toContain(validPubkey);
+  });
+});
+
+describe('buildVaultConfigEvent validation', () => {
+  it('rejects invalid author pubkey', () => {
+    expect(() => buildVaultConfigEvent('bad', defaultConfig())).toThrow('Invalid author pubkey');
+  });
+
+  it('rejects uppercase hex author pubkey', () => {
+    expect(() => buildVaultConfigEvent('AA'.repeat(32), defaultConfig())).toThrow('Invalid author pubkey');
+  });
+
+  it('accepts valid hex author pubkey', () => {
+    const event = buildVaultConfigEvent(AUTHOR, defaultConfig());
+    expect(event.pubkey).toBe(AUTHOR);
   });
 });
 
@@ -181,5 +241,9 @@ describe('buildVaultConfigFilter', () => {
       authors: [AUTHOR],
       '#d': ['dominion:vault-config'],
     });
+  });
+
+  it('rejects invalid author pubkey', () => {
+    expect(() => buildVaultConfigFilter('bad')).toThrow('Invalid author pubkey');
   });
 });
