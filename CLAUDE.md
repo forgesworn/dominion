@@ -31,10 +31,19 @@ npm run lint:fix    # biome check --write src/ tests/
 
 - `src/index.ts` — public API exports (core layer)
 - `src/nostr/index.ts` — public API exports (Nostr layer)
+- `src/types.ts` — all shared types (DominionConfig, CKShare, NostrEvent, VaultShareData)
+- `src/constants.ts` — protocol constants (kinds, salt, version, epoch defaults)
+- `src/config.ts` — config mutations (addToTier, removeFromTier, revokePubkey, etc.)
+- `src/content-keys.ts` — HKDF content key derivation and epoch ID helpers
+- `src/encrypt.ts` — AES-256-GCM encrypt/decrypt (text and blob variants)
 - `src/shamir.ts` — GF(256) Shamir secret sharing
+- `src/shamir-keys.ts` — CK splitting/reconstruction (wraps shamir.ts for content keys)
+- `src/nostr/vault-config.ts` — kind 30078 Vault Config event builder/parser
+- `src/nostr/vault-share.ts` — kind 30480 Vault Share event builder/parser
 - `spec/protocol.md` — full protocol specification
 - `nip-draft.md` — stripped NIP for nostr-protocol/nips submission
 - `llms.txt` — AI-optimised API reference (shipped in npm package)
+- `tests/fixtures.ts` — shared test data (keys, epochs, configs)
 
 ## Architecture
 
