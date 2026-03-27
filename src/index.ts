@@ -1,5 +1,8 @@
 // Types
 
+export type { ShamirShare } from '@forgesworn/shamir-core';
+// Shamir secret sharing (re-exported from @forgesworn/shamir-core)
+export { reconstructSecret, splitSecret } from '@forgesworn/shamir-core';
 // Config mutations
 export {
   addIndividualGrant,
@@ -10,7 +13,6 @@ export {
   revokePubkey,
   unrevokePubkey,
 } from './config.js';
-
 // Constants
 export {
   CK_SALT,
@@ -21,16 +23,10 @@ export {
   LEGACY_PROTOCOL_LABEL,
   PROTOCOL_LABEL,
 } from './constants.js';
-
 // Content keys
 export { contentKeyToHex, deriveContentKey, getCurrentEpochId, getEpochIdForDate } from './content-keys.js';
-
 // Encryption
 export { decrypt, decryptBlob, encrypt, encryptBlob } from './encrypt.js';
-
-// Shamir secret sharing (re-exported from @forgesworn/shamir-core)
-export { splitSecret, reconstructSecret } from '@forgesworn/shamir-core';
-export type { ShamirShare } from '@forgesworn/shamir-core';
 
 // CK splitting
 export { decodeCKShare, encodeCKShare, reconstructCK, splitCK } from './shamir-keys.js';

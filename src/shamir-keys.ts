@@ -1,6 +1,6 @@
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
-import { splitSecret, reconstructSecret } from '@forgesworn/shamir-core';
 import type { ShamirShare } from '@forgesworn/shamir-core';
+import { reconstructSecret, splitSecret } from '@forgesworn/shamir-core';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import type { CKShare } from './types.js';
 
 /**
@@ -9,14 +9,14 @@ import type { CKShare } from './types.js';
 export function splitCK(ck: Uint8Array, threshold: number, total: number): CKShare[] {
   if (ck.length !== 32) throw new Error('Content key must be 32 bytes');
   const shares = splitSecret(ck, threshold, total);
-  return shares.map(s => ({ index: s.id, data: s.data }));
+  return shares.map((s) => ({ index: s.id, data: s.data }));
 }
 
 /**
  * Reconstruct a Content Key from Shamir shares.
  */
 export function reconstructCK(shares: CKShare[]): Uint8Array {
-  const shamirShares: ShamirShare[] = shares.map(s => ({
+  const shamirShares: ShamirShare[] = shares.map((s) => ({
     id: s.index,
     threshold: shares.length,
     data: s.data,
