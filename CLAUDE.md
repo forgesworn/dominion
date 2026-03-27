@@ -12,6 +12,8 @@ npm run typecheck   # tsc --noEmit
 npm run build       # tsc → dist/
 npm run test:watch  # vitest watch mode
 npm run clean       # rm -rf dist/
+npm run lint        # biome check src/ tests/
+npm run lint:fix    # biome check --write src/ tests/
 ```
 
 ## Key Conventions
@@ -20,9 +22,19 @@ npm run clean       # rm -rf dist/
 - Core layer (`dominion-protocol`) has zero Nostr knowledge
 - Nostr layer (`dominion-protocol/nostr`) builds/parses event objects — no publishing
 - `buildVaultConfigEvent` returns UNENCRYPTED content — caller handles NIP-44
+- `buildVaultShareEvent` also returns UNENCRYPTED content — caller handles NIP-44 + NIP-59 gift-wrap
 - British English everywhere
 - Commit messages: `type: description` format
 - Do NOT include `Co-Authored-By` lines in commits
+
+## Key Files
+
+- `src/index.ts` — public API exports (core layer)
+- `src/nostr/index.ts` — public API exports (Nostr layer)
+- `src/shamir.ts` — GF(256) Shamir secret sharing
+- `spec/protocol.md` — full protocol specification
+- `nip-draft.md` — stripped NIP for nostr-protocol/nips submission
+- `llms.txt` — AI-optimised API reference (shipped in npm package)
 
 ## Architecture
 
@@ -42,3 +54,9 @@ Two-layer exports:
 - **Encryption:** AES-256-GCM, 12-byte random IV, output = base64(iv || ciphertext || tag)
 - **Shamir:** GF(256) with irreducible polynomial 0x11b
 - **Epoch format:** ISO 8601 weeks `YYYY-Www`
+
+## Release
+
+- semantic-release on push to main — do NOT manually bump version
+- Commit messages drive versioning: `feat:` → minor, `fix:` → patch, `feat!:` → major
+- CI runs lint, typecheck, build, test across Node 18/22/24
