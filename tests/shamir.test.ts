@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { splitSecret, combineShares } from '../src/shamir.js';
+import { describe, expect, it } from 'vitest';
+import { combineShares, splitSecret } from '../src/shamir.js';
 
 describe('Shamir secret sharing', () => {
   it('splits and combines a secret with 2-of-3', () => {
@@ -7,7 +7,7 @@ describe('Shamir secret sharing', () => {
     const shares = splitSecret(secret, 2, 3);
 
     expect(shares).toHaveLength(3);
-    shares.forEach(s => expect(s.data.length).toBe(5));
+    for (const s of shares) expect(s.data.length).toBe(5);
 
     // Any 2 of 3 should reconstruct
     expect(Array.from(combineShares([shares[0], shares[1]]))).toEqual(Array.from(secret));
@@ -85,8 +85,7 @@ describe('Shamir secret sharing', () => {
   });
 
   it('rejects totalShares > 255 (GF(256) limit)', () => {
-    expect(() => splitSecret(new Uint8Array([42]), 2, 256))
-      .toThrow('Total shares cannot exceed 255 (GF(256) limit)');
+    expect(() => splitSecret(new Uint8Array([42]), 2, 256)).toThrow('Total shares cannot exceed 255 (GF(256) limit)');
   });
 
   it('accepts totalShares = 255 (GF(256) boundary)', () => {
@@ -110,5 +109,21 @@ describe('Shamir secret sharing', () => {
     const share1 = { index: 1, data: new Uint8Array([10]) };
     const share2 = { index: 300, data: new Uint8Array([20]) };
     expect(() => combineShares([share1, share2])).toThrow('Share index must be between 1 and 255');
+  });
+
+  it('works with threshold = total (5-of-5)', () => {
+    const secret = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    const shares = splitSecret(secret, 5, 5);
+    expect(shares).toHaveLength(5);
+    const recovered = combineShares(shares);
+    expect(Array.from(recovered)).toEqual(Array.from(secret));
+  });
+
+  it('fails with threshold = total minus one share (4-of-5 with 5-of-5 split)', () => {
+    const secret = new Uint8Array([10, 20, 30, 40]);
+    const shares = splitSecret(secret, 5, 5);
+    // 4 shares should NOT reliably reconstruct a 5-of-5 split
+    const partial = combineShares(shares.slice(0, 4));
+    expect(Array.from(partial)).not.toEqual(Array.from(secret));
   });
 });

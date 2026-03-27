@@ -51,6 +51,21 @@ export function parseVaultConfig(contentJson: string): DominionConfig | null {
 
     if (!obj.revokedPubkeys.every((p: unknown) => typeof p === 'string')) return null;
 
+    // Validate optional epochConfig values
+    const VALID_EPOCH_LENGTHS = ['daily', 'weekly', 'monthly'];
+    if (obj.epochConfig !== undefined) {
+      if (!obj.epochConfig || typeof obj.epochConfig !== 'object' || Array.isArray(obj.epochConfig)) return null;
+      for (const v of Object.values(obj.epochConfig)) {
+        if (!VALID_EPOCH_LENGTHS.includes(v as string)) return null;
+      }
+    }
+
+    // Validate optional blossomUrl
+    if (obj.blossomUrl !== undefined) {
+      if (typeof obj.blossomUrl !== 'string') return null;
+      if (!/^https?:\/\//.test(obj.blossomUrl)) return null;
+    }
+
     return obj as DominionConfig;
   } catch {
     return null;

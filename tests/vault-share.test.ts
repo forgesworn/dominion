@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { buildVaultShareEvent, parseVaultShare, buildVaultShareFilter } from '../src/nostr/vault-share.js';
+import { describe, expect, it } from 'vitest';
+import { buildVaultShareEvent, buildVaultShareFilter, parseVaultShare } from '../src/nostr/vault-share.js';
 
 const AUTHOR = 'aa'.repeat(32);
 const RECIPIENT = 'bb'.repeat(32);
@@ -28,28 +28,25 @@ describe('buildVaultShareEvent', () => {
   });
 
   it('rejects invalid author pubkey', () => {
-    expect(() => buildVaultShareEvent('bad', RECIPIENT, CK_HEX, '2026-W09', 'family'))
-      .toThrow('Invalid author pubkey');
+    expect(() => buildVaultShareEvent('bad', RECIPIENT, CK_HEX, '2026-W09', 'family')).toThrow('Invalid author pubkey');
   });
 
   it('rejects invalid recipient pubkey', () => {
-    expect(() => buildVaultShareEvent(AUTHOR, 'bad', CK_HEX, '2026-W09', 'family'))
-      .toThrow('Invalid recipient pubkey');
+    expect(() => buildVaultShareEvent(AUTHOR, 'bad', CK_HEX, '2026-W09', 'family')).toThrow('Invalid recipient pubkey');
   });
 
   it('rejects invalid content key hex', () => {
-    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, 'bad', '2026-W09', 'family'))
-      .toThrow('Invalid content key hex');
+    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, 'bad', '2026-W09', 'family')).toThrow(
+      'Invalid content key hex',
+    );
   });
 
   it('rejects empty epochId', () => {
-    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '', 'family'))
-      .toThrow('Epoch ID must not be empty');
+    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '', 'family')).toThrow('Epoch ID must not be empty');
   });
 
   it('rejects empty tier', () => {
-    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', ''))
-      .toThrow('Tier must not be empty');
+    expect(() => buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', '')).toThrow('Tier must not be empty');
   });
 });
 
@@ -73,7 +70,7 @@ describe('parseVaultShare', () => {
 
   it('returns null for missing d tag', () => {
     const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
-    event.tags = event.tags.filter(t => t[0] !== 'd');
+    event.tags = event.tags.filter((t) => t[0] !== 'd');
     expect(parseVaultShare(event)).toBeNull();
   });
 
@@ -96,28 +93,31 @@ describe('parseVaultShare', () => {
 
   it('falls back to secp256k1 when algo tag is absent', () => {
     const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
-    event.tags = event.tags.filter(t => t[0] !== 'algo');
+    event.tags = event.tags.filter((t) => t[0] !== 'algo');
     const parsed = parseVaultShare(event);
     expect(parsed!.algorithm).toBe('secp256k1');
   });
 
   it('falls back to d-tag suffix when tier tag is absent', () => {
     const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
-    event.tags = event.tags.filter(t => t[0] !== 'tier');
+    event.tags = event.tags.filter((t) => t[0] !== 'tier');
     const parsed = parseVaultShare(event);
     expect(parsed!.tier).toBe('family');
   });
 
   it('returns null for unknown algorithm', () => {
     const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
-    const algoIdx = event.tags.findIndex(t => t[0] === 'algo');
+    const algoIdx = event.tags.findIndex((t) => t[0] === 'algo');
     event.tags[algoIdx] = ['algo', 'rsa-2048'];
     expect(parseVaultShare(event)).toBeNull();
   });
 
   it('returns null for non-array tag elements', () => {
     const malformed = {
-      kind: 30480, pubkey: AUTHOR, content: CK_HEX, created_at: 0,
+      kind: 30480,
+      pubkey: AUTHOR,
+      content: CK_HEX,
+      created_at: 0,
       tags: [123, null, ['d', '2026-W09:family']],
     };
     expect(parseVaultShare(malformed)).toBeNull();
@@ -125,7 +125,10 @@ describe('parseVaultShare', () => {
 
   it('returns null for non-string inner tag elements', () => {
     const malformed = {
-      kind: 30480, pubkey: AUTHOR, content: CK_HEX, created_at: 0,
+      kind: 30480,
+      pubkey: AUTHOR,
+      content: CK_HEX,
+      created_at: 0,
       tags: [['d', 12345]],
     };
     expect(parseVaultShare(malformed)).toBeNull();
@@ -133,8 +136,14 @@ describe('parseVaultShare', () => {
 
   it('handles d-tag without colon — returns tier unknown', () => {
     const malformed = {
-      kind: 30480, pubkey: AUTHOR, content: CK_HEX, created_at: 0,
-      tags: [['d', '2026-W09'], ['L', 'dominion']],
+      kind: 30480,
+      pubkey: AUTHOR,
+      content: CK_HEX,
+      created_at: 0,
+      tags: [
+        ['d', '2026-W09'],
+        ['L', 'dominion'],
+      ],
     };
     const parsed = parseVaultShare(malformed);
     expect(parsed).not.toBeNull();
@@ -144,7 +153,10 @@ describe('parseVaultShare', () => {
 
   it('returns null for non-hex content (ckHex validation)', () => {
     const malformed = {
-      kind: 30480, pubkey: AUTHOR, content: 'not-valid-hex', created_at: 0,
+      kind: 30480,
+      pubkey: AUTHOR,
+      content: 'not-valid-hex',
+      created_at: 0,
       tags: [['d', '2026-W09:family']],
     };
     expect(parseVaultShare(malformed)).toBeNull();
@@ -152,7 +164,10 @@ describe('parseVaultShare', () => {
 
   it('returns null for wrong-length hex content', () => {
     const malformed = {
-      kind: 30480, pubkey: AUTHOR, content: 'aabb', created_at: 0,
+      kind: 30480,
+      pubkey: AUTHOR,
+      content: 'aabb',
+      created_at: 0,
       tags: [['d', '2026-W09:family']],
     };
     expect(parseVaultShare(malformed)).toBeNull();
@@ -182,7 +197,7 @@ describe('buildVaultShareFilter', () => {
     });
     // Verify filter d-tag matches what the builder produces
     const event = buildVaultShareEvent(AUTHOR, RECIPIENT, CK_HEX, '2026-W09', 'family');
-    const dTag = event.tags.find(t => t[0] === 'd');
+    const dTag = event.tags.find((t) => t[0] === 'd');
     expect((filter['#d'] as string[])[0]).toBe(dTag![1]);
   });
 

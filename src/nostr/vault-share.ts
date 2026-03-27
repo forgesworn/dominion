@@ -1,5 +1,5 @@
 import { KIND_VAULT_SHARE, PROTOCOL_LABEL } from '../constants.js';
-import type { NostrEvent, VaultShareData, CryptoAlgorithm } from '../types.js';
+import type { CryptoAlgorithm, NostrEvent, VaultShareData } from '../types.js';
 
 const HEX64_RE = /^[0-9a-f]{64}$/;
 
@@ -15,7 +15,7 @@ export function buildVaultShareEvent(
   recipientPubkey: string,
   ckHex: string,
   epochId: string,
-  tier: string
+  tier: string,
 ): NostrEvent {
   if (!HEX64_RE.test(authorPubkey)) throw new Error('Invalid author pubkey');
   if (!HEX64_RE.test(recipientPubkey)) throw new Error('Invalid recipient pubkey');
@@ -48,14 +48,14 @@ export function parseVaultShare(event: Record<string, unknown>): VaultShareData 
 
   if (!Array.isArray(event.tags)) return null;
   const tags = event.tags as unknown[];
-  if (!tags.every(t => Array.isArray(t) && t.every(e => typeof e === 'string'))) return null;
+  if (!tags.every((t) => Array.isArray(t) && t.every((e) => typeof e === 'string'))) return null;
   const safeTags = tags as string[][];
 
-  const dTag = safeTags.find(t => t[0] === 'd');
-  if (!dTag || !dTag[1]) return null;
+  const dTag = safeTags.find((t) => t[0] === 'd');
+  if (!dTag?.[1]) return null;
 
-  const tierTag = safeTags.find(t => t[0] === 'tier');
-  const algoTag = safeTags.find(t => t[0] === 'algo');
+  const tierTag = safeTags.find((t) => t[0] === 'tier');
+  const algoTag = safeTags.find((t) => t[0] === 'algo');
 
   if (typeof event.pubkey !== 'string' || typeof event.content !== 'string') return null;
   if (!HEX64_RE.test(event.content)) return null;
@@ -81,11 +81,7 @@ export function parseVaultShare(event: Record<string, unknown>): VaultShareData 
  * When both epochId and tier are provided, filters by the exact d-tag value.
  * When only authorPubkey is provided, returns all shares from that author.
  */
-export function buildVaultShareFilter(
-  authorPubkey: string,
-  epochId?: string,
-  tier?: string
-): Record<string, unknown> {
+export function buildVaultShareFilter(authorPubkey: string, epochId?: string, tier?: string): Record<string, unknown> {
   if (!HEX64_RE.test(authorPubkey)) throw new Error('Invalid author pubkey');
   const filter: Record<string, unknown> = {
     kinds: [KIND_VAULT_SHARE],

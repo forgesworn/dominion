@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { splitCK, reconstructCK, encodeCKShare, decodeCKShare } from '../src/shamir-keys.js';
+import { describe, expect, it } from 'vitest';
+import { decodeCKShare, encodeCKShare, reconstructCK, splitCK } from '../src/shamir-keys.js';
 
 const TEST_CK = new Uint8Array(32).fill(0).map((_, i) => i * 8);
 
@@ -7,7 +7,7 @@ describe('splitCK / reconstructCK', () => {
   it('splits a 32-byte CK into 3 shares', () => {
     const shares = splitCK(TEST_CK, 2, 3);
     expect(shares).toHaveLength(3);
-    shares.forEach(s => {
+    shares.forEach((s) => {
       expect(typeof s.index).toBe('number');
       expect(s.data).toBeInstanceOf(Uint8Array);
       expect(s.data.length).toBe(32);
@@ -88,11 +88,18 @@ describe('encodeCKShare / decodeCKShare', () => {
   });
 
   it('rejects share index > 255 (GF(256) limit)', () => {
-    expect(() => decodeCKShare('256:aabb')).toThrow('bad index');
+    expect(() => decodeCKShare(`256:${'aa'.repeat(32)}`)).toThrow('bad index');
   });
 
   it('accepts share index 255 (boundary)', () => {
-    const decoded = decodeCKShare('255:aabb');
+    const decoded = decodeCKShare(`255:${'ab'.repeat(32)}`);
     expect(decoded.index).toBe(255);
+    expect(decoded.data.length).toBe(32);
+  });
+
+  it('rejects share data that is not 32 bytes', () => {
+    expect(() => decodeCKShare('1:aabb')).toThrow('data must be 32 bytes');
+    expect(() => decodeCKShare(`1:${'aa'.repeat(16)}`)).toThrow('data must be 32 bytes');
+    expect(() => decodeCKShare(`1:${'aa'.repeat(33)}`)).toThrow('data must be 32 bytes');
   });
 });

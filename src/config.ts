@@ -33,26 +33,21 @@ export function removeFromTier(config: DominionConfig, tier: string, pubkey: str
   if (!Array.isArray(currentTier)) return config;
   return {
     ...config,
-    tiers: { ...config.tiers, [tier]: currentTier.filter(p => p !== pubkey) },
+    tiers: { ...config.tiers, [tier]: currentTier.filter((p) => p !== pubkey) },
   };
 }
 
 /** Add an individual grant. Idempotent — updates label if pubkey already exists. */
 export function addIndividualGrant(config: DominionConfig, pubkey: string, label: string): DominionConfig {
-  if (config.individualGrants.some(g => g.pubkey === pubkey)) {
+  if (config.individualGrants.some((g) => g.pubkey === pubkey)) {
     return {
       ...config,
-      individualGrants: config.individualGrants.map(g =>
-        g.pubkey === pubkey ? { ...g, label } : g
-      ),
+      individualGrants: config.individualGrants.map((g) => (g.pubkey === pubkey ? { ...g, label } : g)),
     };
   }
   return {
     ...config,
-    individualGrants: [
-      ...config.individualGrants,
-      { pubkey, label, grantedAt: Math.floor(Date.now() / 1000) },
-    ],
+    individualGrants: [...config.individualGrants, { pubkey, label, grantedAt: Math.floor(Date.now() / 1000) }],
   };
 }
 
@@ -60,7 +55,7 @@ export function addIndividualGrant(config: DominionConfig, pubkey: string, label
 export function removeIndividualGrant(config: DominionConfig, pubkey: string): DominionConfig {
   return {
     ...config,
-    individualGrants: config.individualGrants.filter(g => g.pubkey !== pubkey),
+    individualGrants: config.individualGrants.filter((g) => g.pubkey !== pubkey),
   };
 }
 
@@ -69,17 +64,15 @@ export function revokePubkey(config: DominionConfig, pubkey: string): DominionCo
   const newTiers = { ...config.tiers };
   for (const [tier, members] of Object.entries(newTiers)) {
     if (Array.isArray(members)) {
-      newTiers[tier] = members.filter(p => p !== pubkey);
+      newTiers[tier] = members.filter((p) => p !== pubkey);
     }
   }
 
   return {
     ...config,
     tiers: newTiers,
-    individualGrants: config.individualGrants.filter(g => g.pubkey !== pubkey),
-    revokedPubkeys: config.revokedPubkeys.includes(pubkey)
-      ? config.revokedPubkeys
-      : [...config.revokedPubkeys, pubkey],
+    individualGrants: config.individualGrants.filter((g) => g.pubkey !== pubkey),
+    revokedPubkeys: config.revokedPubkeys.includes(pubkey) ? config.revokedPubkeys : [...config.revokedPubkeys, pubkey],
   };
 }
 
@@ -87,6 +80,6 @@ export function revokePubkey(config: DominionConfig, pubkey: string): DominionCo
 export function unrevokePubkey(config: DominionConfig, pubkey: string): DominionConfig {
   return {
     ...config,
-    revokedPubkeys: config.revokedPubkeys.filter(p => p !== pubkey),
+    revokedPubkeys: config.revokedPubkeys.filter((p) => p !== pubkey),
   };
 }

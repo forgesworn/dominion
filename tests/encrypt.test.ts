@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { encrypt, decrypt, encryptBlob, decryptBlob } from '../src/encrypt.js';
+import { describe, expect, it } from 'vitest';
 import { deriveContentKey } from '../src/content-keys.js';
-import { TEST_PRIVKEY_HEX, TEST_PRIVKEY_HEX_B, TEST_EPOCH_ID, TEST_TIER } from './fixtures.js';
+import { decrypt, decryptBlob, encrypt, encryptBlob } from '../src/encrypt.js';
+import { TEST_EPOCH_ID, TEST_PRIVKEY_HEX, TEST_PRIVKEY_HEX_B, TEST_TIER } from './fixtures.js';
 
 const ck = deriveContentKey(TEST_PRIVKEY_HEX, TEST_EPOCH_ID, TEST_TIER);
 const wrongCK = deriveContentKey(TEST_PRIVKEY_HEX_B, TEST_EPOCH_ID, TEST_TIER);
@@ -91,27 +91,23 @@ describe('blob encryption', () => {
   it('throws on corrupted base64 string encryption', () => {
     const ciphertext = encrypt('hello', ck);
     // Corrupt a character in the middle
-    const corrupted = ciphertext.slice(0, 10) + 'X' + ciphertext.slice(11);
+    const corrupted = `${ciphertext.slice(0, 10)}X${ciphertext.slice(11)}`;
     expect(() => decrypt(corrupted, ck)).toThrow();
   });
 
   it('rejects 16-byte key (prevents silent AES-128 downgrade)', () => {
-    expect(() => encryptBlob(new Uint8Array([1, 2, 3]), new Uint8Array(16)))
-      .toThrow('Content key must be 32 bytes');
+    expect(() => encryptBlob(new Uint8Array([1, 2, 3]), new Uint8Array(16))).toThrow('Content key must be 32 bytes');
   });
 
   it('rejects 0-byte key', () => {
-    expect(() => encryptBlob(new Uint8Array([1, 2, 3]), new Uint8Array(0)))
-      .toThrow('Content key must be 32 bytes');
+    expect(() => encryptBlob(new Uint8Array([1, 2, 3]), new Uint8Array(0))).toThrow('Content key must be 32 bytes');
   });
 
   it('rejects wrong-length key on decrypt', () => {
-    expect(() => decryptBlob(new Uint8Array(30), new Uint8Array(16)))
-      .toThrow('Content key must be 32 bytes');
+    expect(() => decryptBlob(new Uint8Array(30), new Uint8Array(16))).toThrow('Content key must be 32 bytes');
   });
 
   it('rejects ciphertext shorter than IV + tag minimum', () => {
-    expect(() => decryptBlob(new Uint8Array(20), ck))
-      .toThrow('Ciphertext too short');
+    expect(() => decryptBlob(new Uint8Array(20), ck)).toThrow('Ciphertext too short');
   });
 });

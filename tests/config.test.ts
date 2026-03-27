@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  defaultConfig,
-  addToTier,
-  removeFromTier,
   addIndividualGrant,
+  addToTier,
+  defaultConfig,
+  removeFromTier,
   removeIndividualGrant,
   revokePubkey,
-  unrevokePubkey
+  unrevokePubkey,
 } from '../src/config.js';
 
 describe('defaultConfig', () => {
@@ -39,13 +39,13 @@ describe('tier mutations', () => {
     let config = defaultConfig();
     config = addToTier(config, 'family', 'pubkey1');
     config = addToTier(config, 'family', 'pubkey1');
-    expect(config.tiers.family.filter(p => p === 'pubkey1')).toHaveLength(1);
+    expect(config.tiers.family.filter((p) => p === 'pubkey1')).toHaveLength(1);
   });
 
   it('addToTier creates new tier if it does not exist', () => {
     const config = defaultConfig();
     const updated = addToTier(config, 'subscribers', 'pubkey1');
-    expect((updated.tiers.subscribers as string[])).toContain('pubkey1');
+    expect(updated.tiers.subscribers as string[]).toContain('pubkey1');
   });
 
   it('removeFromTier removes a pubkey', () => {
@@ -88,14 +88,14 @@ describe('revocation', () => {
     config = revokePubkey(config, 'pubkey1');
     expect(config.revokedPubkeys).toContain('pubkey1');
     expect(config.tiers.family).not.toContain('pubkey1');
-    expect(config.individualGrants.find(g => g.pubkey === 'pubkey1')).toBeUndefined();
+    expect(config.individualGrants.find((g) => g.pubkey === 'pubkey1')).toBeUndefined();
   });
 
   it('revokePubkey is idempotent', () => {
     let config = defaultConfig();
     config = revokePubkey(config, 'pubkey1');
     config = revokePubkey(config, 'pubkey1');
-    expect(config.revokedPubkeys.filter(p => p === 'pubkey1')).toHaveLength(1);
+    expect(config.revokedPubkeys.filter((p) => p === 'pubkey1')).toHaveLength(1);
   });
 
   it('unrevokePubkey removes from revoked list', () => {

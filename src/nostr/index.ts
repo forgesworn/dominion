@@ -1,2 +1,2 @@
-export { buildVaultShareEvent, parseVaultShare, buildVaultShareFilter } from './vault-share.js';
-export { buildVaultConfigEvent, parseVaultConfig, buildVaultConfigFilter } from './vault-config.js';
+export { buildVaultConfigEvent, buildVaultConfigFilter, parseVaultConfig } from './vault-config.js';
+export { buildVaultShareEvent, buildVaultShareFilter, parseVaultShare } from './vault-share.js';

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { buildVaultConfigEvent, parseVaultConfig, buildVaultConfigFilter } from '../src/nostr/vault-config.js';
-import { defaultConfig, addToTier, addIndividualGrant } from '../src/config.js';
+import { describe, expect, it } from 'vitest';
+import { addIndividualGrant, addToTier, defaultConfig } from '../src/config.js';
+import { buildVaultConfigEvent, buildVaultConfigFilter, parseVaultConfig } from '../src/nostr/vault-config.js';
 
 const AUTHOR = 'aa'.repeat(32);
 
@@ -67,11 +67,15 @@ describe('parseVaultConfig', () => {
   });
 
   it('returns null for __proto__ key in tiers (prototype pollution)', () => {
-    expect(parseVaultConfig('{"tiers": {"__proto__": ["attacker"]}, "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
+    expect(
+      parseVaultConfig('{"tiers": {"__proto__": ["attacker"]}, "individualGrants": [], "revokedPubkeys": []}'),
+    ).toBeNull();
   });
 
   it('returns null for constructor key in tiers', () => {
-    expect(parseVaultConfig('{"tiers": {"constructor": ["attacker"]}, "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
+    expect(
+      parseVaultConfig('{"tiers": {"constructor": ["attacker"]}, "individualGrants": [], "revokedPubkeys": []}'),
+    ).toBeNull();
   });
 
   it('returns null for non-array, non-auto tier value', () => {
@@ -79,17 +83,79 @@ describe('parseVaultConfig', () => {
   });
 
   it('returns null for non-string elements in tier array', () => {
-    expect(parseVaultConfig('{"tiers": {"family": [42, null]}, "individualGrants": [], "revokedPubkeys": []}')).toBeNull();
+    expect(
+      parseVaultConfig('{"tiers": {"family": [42, null]}, "individualGrants": [], "revokedPubkeys": []}'),
+    ).toBeNull();
   });
 
   it('returns null for malformed individualGrants entries', () => {
     expect(parseVaultConfig('{"tiers": {}, "individualGrants": [42], "revokedPubkeys": []}')).toBeNull();
-    expect(parseVaultConfig('{"tiers": {}, "individualGrants": [{"pubkey": 1, "label": "x", "grantedAt": 0}], "revokedPubkeys": []}')).toBeNull();
-    expect(parseVaultConfig('{"tiers": {}, "individualGrants": [{"pubkey": "abc", "label": "x", "grantedAt": "not a number"}], "revokedPubkeys": []}')).toBeNull();
+    expect(
+      parseVaultConfig(
+        '{"tiers": {}, "individualGrants": [{"pubkey": 1, "label": "x", "grantedAt": 0}], "revokedPubkeys": []}',
+      ),
+    ).toBeNull();
+    expect(
+      parseVaultConfig(
+        '{"tiers": {}, "individualGrants": [{"pubkey": "abc", "label": "x", "grantedAt": "not a number"}], "revokedPubkeys": []}',
+      ),
+    ).toBeNull();
   });
 
   it('returns null for non-string elements in revokedPubkeys', () => {
     expect(parseVaultConfig('{"tiers": {}, "individualGrants": [], "revokedPubkeys": [123, null]}')).toBeNull();
+  });
+
+  it('returns null for invalid epochConfig values', () => {
+    expect(
+      parseVaultConfig(
+        '{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "epochConfig": {"family": "hourly"}}',
+      ),
+    ).toBeNull();
+    expect(
+      parseVaultConfig('{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "epochConfig": {"family": 42}}'),
+    ).toBeNull();
+  });
+
+  it('accepts valid epochConfig values', () => {
+    const parsed = parseVaultConfig(
+      '{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "epochConfig": {"family": "monthly", "connections": "weekly"}}',
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed!.epochConfig).toEqual({ family: 'monthly', connections: 'weekly' });
+  });
+
+  it('returns null for non-object epochConfig', () => {
+    expect(
+      parseVaultConfig('{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "epochConfig": "weekly"}'),
+    ).toBeNull();
+  });
+
+  it('returns null for non-http blossomUrl', () => {
+    expect(
+      parseVaultConfig(
+        '{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "blossomUrl": "javascript:alert(1)"}',
+      ),
+    ).toBeNull();
+    expect(
+      parseVaultConfig(
+        '{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "blossomUrl": "ftp://example.com"}',
+      ),
+    ).toBeNull();
+  });
+
+  it('accepts valid https blossomUrl', () => {
+    const parsed = parseVaultConfig(
+      '{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "blossomUrl": "https://blossom.example.com"}',
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed!.blossomUrl).toBe('https://blossom.example.com');
+  });
+
+  it('returns null for non-string blossomUrl', () => {
+    expect(
+      parseVaultConfig('{"tiers": {}, "individualGrants": [], "revokedPubkeys": [], "blossomUrl": 42}'),
+    ).toBeNull();
   });
 
   it('accepts auto tier value', () => {

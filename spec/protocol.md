@@ -201,13 +201,13 @@ content = base64(iv || ciphertext || tag)
 
 ### Event Tagging
 
-Encrypted events MUST include a `vault` tag identifying the epoch:
+Encrypted events MUST include a `vault` tag identifying the epoch and tier:
 
 ```json
-["vault", "<epoch_id>"]
+["vault", "<epoch_id>", "<tier>"]
 ```
 
-This tells recipients which CK to use for decryption. Events without a `vault` tag are either plaintext or use other encryption schemes (e.g. NIP-44).
+This tells recipients which CK to use for decryption. Since CKs are derived per-epoch AND per-tier, both values are required for CK lookup. Events without a `vault` tag are either plaintext or use other encryption schemes (e.g. NIP-44).
 
 Example encrypted event:
 
@@ -217,7 +217,7 @@ Example encrypted event:
   "pubkey": "<author_pubkey>",
   "tags": [
     ["d", "journal-entry-2026-03-04"],
-    ["vault", "2026-W10"],
+    ["vault", "2026-W10", "family"],
     // ... other tags
   ],
   "content": "dGhpcyBpcyBiYXNlNjQgZW5jb2RlZCBjaXBoZXJ0ZXh0..."  // base64(iv || ciphertext || tag)
@@ -383,7 +383,7 @@ A parameterised replaceable event containing an epoch CK for a specific recipien
   "tags": [
     ["d", "2026-W10:family"],              // epoch ID + tier
     ["p", "<recipient_pubkey>"],          // who this share is for
-    ["tier", "family"],                   // which audience tier (optional)
+    ["tier", "family"],                   // which audience tier
     ["algo", "secp256k1"],               // asymmetric algorithm (for future quantum migration)
     ["L", "dominion"],                     // protocol namespace label
     ["l", "share", "dominion"]             // protocol label
@@ -392,13 +392,34 @@ A parameterised replaceable event containing an epoch CK for a specific recipien
 }
 ```
 
+**Tags:**
+
+| Tag | Required | Description |
+|-----|----------|-------------|
+| `d` | REQUIRED | `{epoch_id}:{tier}` — parameterised replaceable identifier |
+| `p` | REQUIRED | Recipient pubkey — who this share is for |
+| `tier` | REQUIRED | Audience tier name (e.g. `family`, `connections`) |
+| `algo` | REQUIRED | Asymmetric algorithm used for signing/key agreement (default: `secp256k1`) |
+| `L` | RECOMMENDED | Protocol namespace label (`dominion`) |
+| `l` | RECOMMENDED | Protocol label (`share`, namespaced under `dominion`) |
+
 **Distribution:** This event is NIP-44 encrypted to the recipient's pubkey, sealed in a kind 13 event, and gift-wrapped in a kind 1059 event (NIP-59). The recipient unwraps the gift to extract the CK.
 
 **Client behaviour:**
 
 - On receiving a kind 30480 (via gift-wrap unwrapping), extract the CK and cache it locally
-- Use the `d` tag (epoch ID) to match against `vault` tags on encrypted events
+- Use the `d` tag (epoch ID + tier) to match against `vault` tags on encrypted events
 - A newer event for the same `d` tag replaces the previous one (parameterised replaceable)
+
+**Example REQ filter:**
+
+```jsonc
+// Subscribe to all vault shares from an author for a specific epoch and tier
+["REQ", "vault-shares", {"kinds": [30480], "authors": ["<author_pubkey>"], "#d": ["2026-W10:family"]}]
+
+// Subscribe to all vault shares from an author (any epoch/tier)
+["REQ", "all-shares", {"kinds": [30480], "authors": ["<author_pubkey>"]}]
+```
 
 ### NIP-78 (Kind 30078) — Vault Configuration
 
@@ -461,10 +482,10 @@ A NIP-78 app-specific data event storing the author's vault settings. Self-encry
 Any Nostr event encrypted with Dominion includes:
 
 ```json
-["vault", "<epoch_id>"]
+["vault", "<epoch_id>", "<tier>"]
 ```
 
-Clients use this tag to determine which CK is needed. If the client has the CK (received via kind 30480), it decrypts. If not, the content is inaccessible.
+Clients use this tag to determine which CK is needed. The epoch and tier together identify the exact CK required. If the client has the CK (received via kind 30480), it decrypts. If not, the content is inaccessible.
 
 ---
 
@@ -503,13 +524,17 @@ Vault-encrypted events contain no recipient information:
   "pubkey": "<author>",
   "tags": [
     ["d", "some-identifier"],
-    ["vault", "2026-W10"]       // only epoch ID, no recipients
+    ["vault", "2026-W10", "family"]  // epoch + tier, no recipients
   ],
   "content": "<base64 ciphertext>"
 }
 ```
 
 Recipients are managed entirely through the separate gift-wrap channel. Adding or removing recipients doesn't touch the content event.
+
+### Tier Name Visibility
+
+The `vault` tag on content events includes the tier name in cleartext: `["vault", "2026-W10", "family"]`. This means relay operators can see which tier a piece of content was encrypted for, even though they cannot decrypt the content or identify recipients. For most use cases (creator paywalls, community groups) tier names carry no sensitive information. However, for privacy-sensitive deployments, implementations MAY use opaque tier identifiers (e.g. hashed or random strings) instead of human-readable names. The protocol treats tier names as opaque strings — any valid UTF-8 string works.
 
 ---
 
@@ -675,6 +700,16 @@ Dominion builds on existing Nostr primitives and introduces minimal new surface 
 | `["vault", "<epoch_id>", "<tier>"]` tag | Content event tag | Signals Dominion encryption, epoch, and tier for CK lookup |
 | `["algo", "<algorithm>"]` tag | Protocol event tag | Identifies asymmetric algorithm (default: `secp256k1`). Enables post-quantum migration. |
 | `["L", "dominion"]` / `["l", "...", "dominion"]` | Label tags | Protocol namespace |
+
+### Why Not Existing NIPs?
+
+**Why not NIP-44 direct encryption?** NIP-44 encrypts content to a single recipient. Encrypting to 100 recipients requires 100 separate NIP-44 operations per event. Dominion encrypts content once with an epoch CK and distributes the lightweight key separately — the scalability table in [Section 1](#1-motivation) quantifies this.
+
+**Why not NIP-EE / Marmot (MLS-based group encryption)?** NIP-EE (now unrecommended, succeeded by the Marmot Protocol) uses MLS ratchet trees for secure group messaging with forward secrecy and post-compromise security. It is designed for chat — all group members are equal, there are no audience tiers, and clients must maintain ratchet tree state. Dominion is designed for content access control — audience tiers, stateless CK derivation (only needs private key + epoch + tier), and one-to-many content encryption. The two are complementary: Marmot handles real-time group messaging, Dominion handles tiered content publishing.
+
+**Why not NIP-29 relay-based groups?** NIP-29 delegates access control to relay policy enforcement — the relay decides who can read. Dominion uses cryptographic enforcement — only CK holders can decrypt, regardless of which relay stores the event. NIP-29 also requires custom relay software, while Dominion works on any standard NIP-01 relay. The two are complementary: NIP-29 manages group membership at the relay level, Dominion manages content encryption at the cryptographic level.
+
+**Why not NIP-51 lists for tier membership?** NIP-51 lists are published to relays and are visible to relay operators. Vault tier memberships (who is in your "family" or "close friends" list) are private — stored as NIP-44 self-encrypted data in the author's vault config (NIP-78). Publishing tier memberships via NIP-51 would leak the social graph that Dominion is designed to protect.
 
 ### Interoperability
 
@@ -878,18 +913,16 @@ The `algo` tag is a zero-cost hedge: it adds one tag per event today and unlocks
 
 ## 18. Reference Implementation
 
-The standalone npm package `dominion-protocol` provides the core cryptography (HKDF, AES-GCM, Shamir) and Nostr event layer as a two-layer library. The first reference implementation is built within [Fathom](https://github.com/nickhealthy-fathom/fathom), a sovereign personal data layer built on Nostr. Fathom's implementation integrates Dominion with:
+The reference implementation is [`dominion-protocol`](https://github.com/forgesworn/dominion), a standalone npm package providing the core cryptography (HKDF, AES-GCM, Shamir) and Nostr event layer as a two-layer library:
 
-- Parent-controlled access tiers for children's data
-- Encrypted learning journals and family calendars
-- Blossom media integration (encrypted photo/video uploads)
-- Co-parent access management with revocation
+- `dominion-protocol` — universal crypto primitives (HKDF, AES-GCM, Shamir, config)
+- `dominion-protocol/nostr` — Nostr event builders/parsers for kind 30480 and NIP-78
 
-Dominion is designed as a standalone NIP. Any Nostr client can implement it independently. The protocol does not depend on Fathom or any specific client.
+Dominion is designed as a standalone NIP. Any Nostr client can implement it independently. The protocol does not depend on any specific client.
 
 ### Adoption Strategy
 
-1. Ship working implementation in reference client
+1. Ship reference implementation as npm package
 2. Propose NIP as "Epoch-Based Encrypted Content Access"
 3. Pitch to Habla, 0xChat, Zap.stream as immediate adopters
 4. Let creator economy and enterprise use cases emerge organically
@@ -900,7 +933,7 @@ Dominion is designed as a standalone NIP. Any Nostr client can implement it inde
 Dominion is open source. Contributions, feedback, and NIP discussion are welcome.
 
 - Protocol specification: this document
-- Reference implementation: [Fathom](https://github.com/nickhealthy-fathom/fathom)
+- Reference implementation: [`dominion-protocol`](https://github.com/forgesworn/dominion)
 - NIP proposal: pending (kind numbers are proposals)
 
 ---

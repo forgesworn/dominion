@@ -25,18 +25,26 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "lint": "biome check src/ tests/",
+    "lint:fix": "biome check --write src/ tests/"
   },
   "keywords": [
     "nostr",
+    "nostr-protocol",
     "encryption",
     "access-control",
     "epoch",
-    "aes-gcm",
+    "aes-256-gcm",
     "hkdf",
     "shamir",
+    "secret-sharing",
     "tiered-access",
     "content-keys",
+    "key-rotation",
+    "vault",
+    "nip-44",
+    "private-content",
     "dominion"
   ],
   "sideEffects": false,
@@ -58,6 +66,7 @@
     "@noble/hashes": "^2.0.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.9",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^12.0.6",

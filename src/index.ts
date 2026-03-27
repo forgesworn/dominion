@@ -1,46 +1,46 @@
 // Types
-export type {
-  DominionConfig,
-  IndividualGrant,
-  CKShare,
-  TierName,
-  EpochLength,
-  EpochConfig,
-  CryptoAlgorithm,
-  NostrEvent,
-  VaultShareData,
-} from './types.js';
-
-// Constants
-export {
-  DOMINION_VERSION,
-  CK_SALT,
-  KIND_VAULT_SHARE,
-  KIND_VAULT_CONFIG,
-  PROTOCOL_LABEL,
-  LEGACY_PROTOCOL_LABEL,
-  DEFAULT_EPOCH_LENGTH,
-} from './constants.js';
-
-// Content keys
-export { deriveContentKey, contentKeyToHex, getCurrentEpochId, getEpochIdForDate } from './content-keys.js';
-
-// Encryption
-export { encrypt, decrypt, encryptBlob, decryptBlob } from './encrypt.js';
-
-// Shamir secret sharing
-export { splitSecret, combineShares } from './shamir.js';
-
-// CK splitting
-export { splitCK, reconstructCK, encodeCKShare, decodeCKShare } from './shamir-keys.js';
 
 // Config mutations
 export {
-  defaultConfig,
-  addToTier,
-  removeFromTier,
   addIndividualGrant,
+  addToTier,
+  defaultConfig,
+  removeFromTier,
   removeIndividualGrant,
   revokePubkey,
   unrevokePubkey,
 } from './config.js';
+
+// Constants
+export {
+  CK_SALT,
+  DEFAULT_EPOCH_LENGTH,
+  DOMINION_VERSION,
+  KIND_VAULT_CONFIG,
+  KIND_VAULT_SHARE,
+  LEGACY_PROTOCOL_LABEL,
+  PROTOCOL_LABEL,
+} from './constants.js';
+
+// Content keys
+export { contentKeyToHex, deriveContentKey, getCurrentEpochId, getEpochIdForDate } from './content-keys.js';
+
+// Encryption
+export { decrypt, decryptBlob, encrypt, encryptBlob } from './encrypt.js';
+
+// Shamir secret sharing
+export { combineShares, splitSecret } from './shamir.js';
+
+// CK splitting
+export { decodeCKShare, encodeCKShare, reconstructCK, splitCK } from './shamir-keys.js';
+export type {
+  CKShare,
+  CryptoAlgorithm,
+  DominionConfig,
+  EpochConfig,
+  EpochLength,
+  IndividualGrant,
+  NostrEvent,
+  TierName,
+  VaultShareData,
+} from './types.js';

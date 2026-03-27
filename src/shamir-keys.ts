@@ -1,5 +1,5 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
-import { splitSecret, combineShares } from './shamir.js';
+import { combineShares, splitSecret } from './shamir.js';
 import type { CKShare } from './types.js';
 
 /**
@@ -35,10 +35,14 @@ export function decodeCKShare(encoded: string): CKShare {
   const hexStr = encoded.slice(colonIdx + 1);
 
   const index = parseInt(indexStr, 10);
-  if (isNaN(index) || index < 1 || index > 255) throw new Error('Invalid CK share: bad index');
+  if (Number.isNaN(index) || index < 1 || index > 255) throw new Error('Invalid CK share: bad index');
 
   if (!/^[0-9a-f]+$/.test(hexStr) || hexStr.length % 2 !== 0) {
     throw new Error('Invalid CK share: bad hex data');
+  }
+
+  if (hexStr.length !== 64) {
+    throw new Error('Invalid CK share: data must be 32 bytes (64 hex chars)');
   }
 
   return { index, data: hexToBytes(hexStr) };

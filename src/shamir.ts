@@ -74,7 +74,7 @@ export function combineShares(shares: CKShare[]): Uint8Array {
   for (const s of shares) {
     if (s.index < 1 || s.index > 255) throw new Error('Share index must be between 1 and 255');
   }
-  const indices = new Set(shares.map(s => s.index));
+  const indices = new Set(shares.map((s) => s.index));
   if (indices.size !== shares.length) throw new Error('Duplicate share indices detected');
 
   const len = shares[0].data.length;
