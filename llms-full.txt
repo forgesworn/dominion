@@ -1,0 +1,312 @@
+# dominion-protocol
+
+> Epoch-based encrypted access control for Nostr. Tiered audiences, key rotation, and revocable access -- all on standard Nostr relays. HKDF-derived content keys per epoch/tier, AES-256-GCM encryption, Shamir secret sharing for key recovery. Zero custom relay software required.
+
+GitHub: https://github.com/forgesworn/dominion
+npm: dominion-protocol
+Licence: MIT
+Node: >=18
+ESM-only. Two subpath exports: `dominion-protocol` (main), `dominion-protocol/nostr`.
+
+## Why Dominion?
+
+Nostr content is either public or NIP-44 encrypted to specific recipients. There is no middle ground:
+
+- No audience tiers (family, close friends, subscribers seeing different content)
+- No revocable access (once someone has a key, they keep it forever)
+- No scalable encryption (100 recipients = 100 separate NIP-44 operations)
+
+Dominion solves all three. Content is encrypted ONCE with an epoch-based Content Key. Only the lightweight key distribution scales with audience size:
+
+| Recipients | NIP-44 approach | Dominion approach |
+|-----------|----------------|-----------------|
+| 1 | 1 encryption | 1 encryption + 1 key share |
+| 10 | 10 encryptions | 1 encryption + 10 key shares |
+| 100 | 100 encryptions | 1 encryption + 100 key shares |
+| 1,000 | 1,000 encryptions | 1 encryption + 1,000 key shares |
+
+## How It Works
+
+```
+Author                                    Recipient
+  |                                          |
+  +- Derive epoch CK from private key        |
+  +- Encrypt content with CK (AES-GCM)       |
+  +- Publish encrypted event to relay         |
+  +- Gift-wrap CK to each recipient ---------+
+  |                                          +- Unwrap gift -> get CK
+  |                                          +- Fetch encrypted event
+  |                                          +- Decrypt with CK
+  |
+  +- Next epoch: derive new CK
+  +- Distribute to current recipients
+  +- Skip revoked recipients --- revoked user can't decrypt new content
+```
+
+Key insight: Content is encrypted ONCE with an epoch-based Content Key. The CK is then distributed to recipients via gift-wrapped events. This separates the encryption operation (one-time) from the access control operation (per-recipient).
+
+## Core Concepts
+
+- **Content Key (CK):** A 256-bit AES key used to encrypt content for a specific epoch and tier
+- **Epoch:** A time period (default: one ISO week) during which a single CK is used
+- **Epoch ID:** Format `YYYY-Www` (e.g. `2026-W13`)
+- **Vault share:** A gift-wrapped event containing a CK, sent to a specific recipient (kind 30480)
+- **Tier:** An audience level (e.g. family, connections) that determines CK distribution
+- **Vault config:** A self-encrypted event storing the author's tier memberships and settings (kind 30078)
+
+## Install
+
+npm install dominion-protocol
+
+## Subpath Exports
+
+### dominion-protocol (main entry)
+
+Core crypto primitives -- universal, no Nostr knowledge.
+
+Content key derivation:
+- deriveContentKey(privkeyHex, epochId, tier) -> Uint8Array -- HKDF-SHA256 derived 32-byte content key
+- contentKeyToHex(ck) -> string -- convert content key to hex
+- getCurrentEpochId() -> string -- current ISO week (YYYY-Www)
+- getEpochIdForDate(date) -> string -- ISO week for a specific date
+
+Encryption (AES-256-GCM):
+- encrypt(plaintext, ck) -> string -- encrypt text, returns base64(iv || ciphertext || tag)
+- decrypt(ciphertext, ck) -> string -- decrypt base64 ciphertext
+- encryptBlob(data, ck) -> Uint8Array -- encrypt binary data
+- decryptBlob(encrypted, ck) -> Uint8Array -- decrypt binary data
+
+Shamir secret sharing (GF(256)):
+- splitSecret(secret, threshold, totalShares) -> CKShare[] -- split any secret
+- combineShares(shares) -> Uint8Array -- reconstruct from threshold shares
+- splitCK(ck, threshold, total) -> CKShare[] -- split a 32-byte content key
+- reconstructCK(shares) -> Uint8Array -- reconstruct content key from shares
+- encodeCKShare(share) -> string -- encode as "index:hexdata"
+- decodeCKShare(encoded) -> CKShare -- decode from "index:hexdata"
+
+Vault config management (pure, immutable):
+- defaultConfig() -> DominionConfig -- empty config with family + connections tiers
+- addToTier(config, tier, pubkey) -> DominionConfig -- add pubkey to tier
+- removeFromTier(config, tier, pubkey) -> DominionConfig -- remove pubkey from tier
+- addIndividualGrant(config, pubkey, label) -> DominionConfig -- one-off access grant
+- removeIndividualGrant(config, pubkey) -> DominionConfig -- remove grant
+- revokePubkey(config, pubkey) -> DominionConfig -- revoke from all tiers + grants
+- unrevokePubkey(config, pubkey) -> DominionConfig -- remove from revoked list
+
+Constants:
+- KIND_VAULT_SHARE -- 30480
+- KIND_VAULT_CONFIG -- 30078 (NIP-78 app-specific data)
+- DOMINION_VERSION -- protocol version string
+- CK_SALT -- "vaulstr-ck-v1"
+- PROTOCOL_LABEL -- "dominion"
+- DEFAULT_EPOCH_LENGTH -- "weekly"
+
+Types:
+- DominionConfig -- { tiers, individualGrants, revokedPubkeys, epochConfig?, blossomUrl? }
+- IndividualGrant -- { pubkey, label, grantedAt }
+- CKShare -- { index: number, data: Uint8Array }
+- TierName -- 'family' | 'connections' | 'close_friends' | 'subscribers' | string
+- EpochLength -- 'daily' | 'weekly' | 'monthly'
+- NostrEvent -- { kind, pubkey, created_at, tags, content }
+- VaultShareData -- { fromPubkey, epochId, ckHex, tier, algorithm }
+
+### dominion-protocol/nostr
+
+Nostr event builders and parsers. Returns unsigned, unencrypted events -- caller handles NIP-44 encryption and NIP-59 gift wrapping.
+
+Vault shares (kind 30480):
+- buildVaultShareEvent(authorPubkey, recipientPubkey, ckHex, epochId, tier) -> NostrEvent
+- parseVaultShare(event) -> VaultShareData | null
+- buildVaultShareFilter(authorPubkey, epochId?, tier?) -> filter object
+
+Vault config (kind 30078, NIP-78):
+- buildVaultConfigEvent(authorPubkey, config) -> NostrEvent
+- parseVaultConfig(contentJson) -> DominionConfig | null
+- buildVaultConfigFilter(authorPubkey) -> filter object
+
+## Crypto Details
+
+- CK derivation: HKDF-SHA256(ikm=privkey, salt="vaulstr-ck-v1", info="epoch:{epochId}:tier:{tier}")
+- Encryption: AES-256-GCM, 12-byte random IV, output = base64(iv || ciphertext || tag)
+- Shamir: GF(256) with irreducible polynomial 0x11b, threshold 2-255
+- Epoch format: ISO 8601 weeks YYYY-Www
+
+## Design Principles
+
+1. One key per epoch, not per item. All content in a week uses the same CK.
+2. Deterministically derived. CKs come from HKDF on the author's private key. No key database to lose.
+3. Standard relays only. Uses NIP-44, NIP-59, NIP-78. No custom relay software required.
+4. Separation of content and access. Encrypted content propagates freely. Key distribution is separate.
+5. Forward-only revocation. Stop distributing keys for new epochs. Weekly rotation = 7-day revocation.
+6. Algorithm agility. Events tagged with ['algo', 'secp256k1']. Post-quantum upgradeable.
+
+## Event Kinds
+
+### Kind 30480 -- Vault Share
+
+Replaceable event. Contains a Content Key encrypted for a specific recipient.
+
+Tags:
+- ['d', '{epochId}:{tier}'] -- deduplication tag
+- ['p', '{recipientPubkey}'] -- intended recipient
+- ['tier', '{tierName}'] -- audience tier
+- ['encrypted', 'nip44'] -- encryption method marker
+- ['algo', 'secp256k1'] -- asymmetric algorithm
+- ['L', 'dominion'] -- NIP-32 label namespace
+- ['l', 'share', 'dominion'] -- NIP-32 label
+
+Content: the raw CK in hex (MUST be NIP-44 encrypted before publishing)
+
+SECURITY: This event MUST be NIP-44 encrypted and NIP-59 gift-wrapped before publishing. The content field contains the raw content key. Publishing without encryption leaks the content key to anyone who can read the relay.
+
+### Kind 30078 -- Vault Config (NIP-78 App-Specific Data)
+
+Replaceable event. Stores the author's tier memberships, grants, and revocations.
+
+Tags:
+- ['d', 'dominion:vault-config'] -- deduplication tag
+- ['encrypted', 'nip44'] -- encryption method marker
+- ['algo', 'secp256k1'] -- asymmetric algorithm
+- ['L', 'dominion'] -- NIP-32 label namespace
+- ['l', 'config', 'dominion'] -- NIP-32 label
+
+Content: JSON-serialised DominionConfig (MUST be NIP-44 self-encrypted before publishing)
+
+## Quick Examples
+
+### Derive and encrypt content
+
+```typescript
+import { deriveContentKey, contentKeyToHex, getCurrentEpochId, encrypt, decrypt } from 'dominion-protocol';
+
+// Derive a content key for this week's "family" tier
+const ck = deriveContentKey(privateKeyHex, getCurrentEpochId(), 'family');
+console.log(contentKeyToHex(ck)); // 64-char hex string
+
+// Encrypt content
+const ciphertext = encrypt('Hello vault!', ck);
+const plaintext = decrypt(ciphertext, ck); // "Hello vault!"
+```
+
+### Encrypt binary data (images, files)
+
+```typescript
+import { encryptBlob, decryptBlob, deriveContentKey, getCurrentEpochId } from 'dominion-protocol';
+
+const ck = deriveContentKey(privateKeyHex, getCurrentEpochId(), 'family');
+const imageBytes = new Uint8Array(/* ... image data ... */);
+const encrypted = encryptBlob(imageBytes, ck);     // Uint8Array(iv || ciphertext || tag)
+const decrypted = decryptBlob(encrypted, ck);      // original image bytes
+```
+
+### Shamir split for key recovery (2-of-3)
+
+```typescript
+import { splitCK, reconstructCK, encodeCKShare, decodeCKShare } from 'dominion-protocol';
+
+const shares = splitCK(ck, 2, 3);
+const encoded = shares.map(encodeCKShare); // ["1:ab12...", "2:cd34...", "3:ef56..."]
+
+// Reconstruct from any 2 shares
+const recovered = reconstructCK(encoded.slice(0, 2).map(decodeCKShare));
+```
+
+### Manage vault configuration
+
+```typescript
+import { defaultConfig, addToTier, addIndividualGrant, revokePubkey } from 'dominion-protocol';
+
+let config = defaultConfig();
+// defaultConfig() returns: { tiers: { family: [], connections: 'auto' }, individualGrants: [], revokedPubkeys: [] }
+// 'auto' means the connections tier is populated automatically (e.g. from a follow list)
+
+config = addToTier(config, 'family', recipientPubkey);
+config = addToTier(config, 'close_friends', anotherPubkey);    // creates tier if it doesn't exist
+config = addIndividualGrant(config, guestPubkey, 'beta tester');
+config = revokePubkey(config, formerFriendPubkey);              // removes from ALL tiers + grants
+```
+
+### Build a vault share event (kind 30480)
+
+```typescript
+import { buildVaultShareEvent, parseVaultShare } from 'dominion-protocol/nostr';
+import { contentKeyToHex, deriveContentKey, getCurrentEpochId } from 'dominion-protocol';
+
+const epochId = getCurrentEpochId();
+const ck = deriveContentKey(privateKeyHex, epochId, 'family');
+const ckHex = contentKeyToHex(ck);
+
+// Build event -- caller MUST NIP-44 encrypt content + NIP-59 gift wrap before publishing
+const event = buildVaultShareEvent(authorPubkey, recipientPubkey, ckHex, epochId, 'family');
+// event.content contains the raw CK hex -- encrypt this before publishing!
+
+// On the receiving side, after NIP-59 unwrap + NIP-44 decrypt:
+const shareData = parseVaultShare(decryptedEvent);
+// shareData = { fromPubkey, epochId, ckHex, tier, algorithm }
+```
+
+### Build a vault config event (kind 30078)
+
+```typescript
+import { buildVaultConfigEvent, parseVaultConfig, buildVaultConfigFilter } from 'dominion-protocol/nostr';
+
+// Build config event -- caller MUST NIP-44 self-encrypt before publishing
+const configEvent = buildVaultConfigEvent(authorPubkey, config);
+// configEvent.content is plaintext JSON -- self-encrypt before publishing!
+
+// Build a filter to fetch your config from relays
+const filter = buildVaultConfigFilter(authorPubkey);
+// filter = { kinds: [30078], authors: [authorPubkey], '#d': ['dominion:vault-config'] }
+
+// After fetching and self-decrypting:
+const parsedConfig = parseVaultConfig(decryptedContent);
+// parsedConfig = DominionConfig | null (null if validation fails)
+```
+
+## Error Handling
+
+All functions throw descriptive Error instances on invalid input:
+
+- deriveContentKey: "Private key must be 64 lowercase hex characters", "Epoch ID must not be empty", "Tier must not be empty"
+- encrypt/decrypt: "Content key must be 32 bytes", "Ciphertext too short"
+- splitCK: "Content key must be 32 bytes"
+- splitSecret: "Threshold cannot exceed total shares", "Threshold must be at least 2", "Total shares must be at least 2", "Total shares cannot exceed 255 (GF(256) limit)"
+- combineShares: "Need at least 2 shares to reconstruct", "Share index must be between 1 and 255", "Duplicate share indices detected", "All shares must have equal data length"
+- decodeCKShare: "Invalid CK share: missing colon separator", "Invalid CK share: bad index", "Invalid CK share: bad hex data", "Invalid CK share: data must be 32 bytes (64 hex chars)"
+- buildVaultShareEvent: "Invalid author pubkey", "Invalid recipient pubkey", "Invalid content key hex"
+- buildVaultConfigEvent: "Invalid author pubkey"
+
+Parser functions (parseVaultShare, parseVaultConfig) return null on invalid input rather than throwing.
+
+## Security Considerations
+
+1. NEVER publish vault share events without NIP-44 encryption + NIP-59 gift wrapping. The content field contains the raw content key.
+2. NEVER publish vault config events without NIP-44 self-encryption. The content field contains your full tier membership list.
+3. Content keys are deterministically derived from the author's private key. Protect the private key.
+4. Revocation is forward-only: stop distributing CKs for new epochs. Previously distributed CKs remain valid for their epoch.
+5. The 'connections: auto' tier value is a placeholder indicating automatic population from follow lists. Client implementations must resolve this.
+6. All pubkeys in configs are validated as 64-character lowercase hex strings.
+7. Prototype pollution protection: tier names '__proto__', 'constructor', 'prototype' are rejected.
+
+## Use Cases
+
+- **Paid subscriptions:** Gate content behind Lightning payments. Pay -> receive CK -> decrypt content. Non-payment -> skip next epoch's CK distribution.
+- **Family content:** Share children's photos with family tier, milestone updates with connections tier.
+- **Private communities:** Run encrypted group communication with tiered access levels.
+- **Creator paywalls:** Nostr-native Patreon alternative with no platform taking a cut.
+- **Temporary access:** Grant time-bounded access via individual grants. Revoke after period ends.
+
+## Dependencies
+
+- @noble/hashes -- HKDF-SHA256, SHA-256, hex utilities
+- @noble/ciphers -- AES-256-GCM (synchronous, pure JS)
+
+Both dependencies are from the @noble suite (Paul Miller) -- audited, pure JavaScript, no native bindings.
+
+## Alignment with Existing NIPs
+
+- NIP-44: Used for encrypting vault share content and vault config content
+- NIP-59: Used for gift-wrapping vault share events to recipients
+- NIP-78: Used for storing vault config as app-specific data (kind 30078)
+- NIP-32: Label namespace 'dominion' for filtering events
+- NIP-40: Expiration tags can be added to vault shares for time-bounded access
