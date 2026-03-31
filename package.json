@@ -27,7 +27,8 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "lint": "biome check src/ tests/",
-    "lint:fix": "biome check --write src/ tests/"
+    "lint:fix": "biome check --write src/ tests/",
+    "prepare": "npm run build"
   },
   "keywords": [
     "nostr",
