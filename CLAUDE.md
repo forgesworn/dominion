@@ -68,4 +68,4 @@ Two-layer exports:
 
 - semantic-release on push to main — do NOT manually bump version
 - Commit messages drive versioning: `feat:` → minor, `fix:` → patch, `feat!:` → major
-- CI runs lint, typecheck, build, test across Node 18/22/24
+- CI runs lint, typecheck, build, test across Node 20/22/24
