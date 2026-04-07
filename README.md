@@ -49,6 +49,8 @@ Dominion introduces **vaults** — encrypted content containers on standard Nost
 
 No custom relay software. No middleware. No platform. Just standard Nostr events and proven cryptography.
 
+Combine with [nostr-attestations](https://github.com/forgesworn/nostr-attestations) to gate vault access on verified credentials (e.g. only verified professionals can decrypt tier-2 content).
+
 ## Use Cases
 
 | Use case | How Dominion helps |
