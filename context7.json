@@ -1,10 +1,4 @@
 {
-  "projectTitle": "dominion",
-  "description": "Epoch-based encrypted access control for Nostr groups — Shamir key rotation, HKDF derivation, forward secrecy. TypeScript.",
-  "excludeFolders": ["node_modules", "dist", "coverage", "src", "tests", ".github", ".changeset"],
-  "rules": [
-    "Keys rotate by epoch — removing a member triggers a new epoch with re-derived keys.",
-    "Uses HKDF for key derivation and Shamir for threshold-based admin recovery.",
-    "Forward secrecy means past messages stay encrypted even if current keys are compromised."
-  ]
+  "url": "https://context7.com/forgesworn/dominion",
+  "public_key": "pk_vdoXns3QEblb1693KnlDH"
 }
