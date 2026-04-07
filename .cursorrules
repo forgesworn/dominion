@@ -1,0 +1,41 @@
+# Cursor Rules — dominion-protocol
+
+Epoch-based encrypted access control protocol — HKDF-derived content keys, AES-256-GCM, Shamir secret sharing, tiered audiences.
+
+## Commands
+
+- `npm run build` — compile TypeScript to dist/
+- `npm test` — run all tests (vitest)
+- `npm run typecheck` — type-check without emitting
+- `npm run lint` — biome check src/ tests/
+
+## Conventions
+
+- British English — colour, initialise, behaviour, licence
+- ESM-only — "type": "module" in package.json
+- TDD — write a failing test first, then implement
+- Pure functions — all functions take data in and return data out, no mutation
+- Two-layer exports — core layer is Nostr-free; Nostr layer builds/parses events only
+- Commit messages — type: description format (feat:, fix:, docs:, chore:, refactor:). No Co-Authored-By lines.
+
+## Key Patterns
+
+- Core layer (dominion-protocol) has zero Nostr knowledge
+- Nostr layer (dominion-protocol/nostr) builds/parses events — no publishing
+- buildVaultConfigEvent and buildVaultShareEvent return UNENCRYPTED content — caller handles NIP-44
+- CK derivation: HKDF-SHA256(ikm=privkey, salt="dominion-ck-v1", info="epoch:{epochId}:tier:{tier}")
+- Encryption: AES-256-GCM, 12-byte random IV, output = base64(iv || ciphertext || tag)
+- Shamir: GF(256) with irreducible polynomial 0x11b
+- Epoch IDs are ISO 8601 weeks: YYYY-Www
+- Config mutations return new DominionConfig — never mutate input
+
+## Structure
+
+- src/index.ts — core layer public API
+- src/nostr/index.ts — Nostr layer public API
+- src/types.ts — all shared types (DominionConfig, CKShare, VaultShareData, etc.)
+- src/constants.ts — protocol constants (kinds, salt, version, epoch defaults)
+- src/config.ts — config mutations (addToTier, removeFromTier, revokePubkey, etc.)
+- src/content-keys.ts — HKDF content key derivation and epoch ID helpers
+- src/encrypt.ts — AES-256-GCM encrypt/decrypt (text and blob variants)
+- src/shamir.ts / src/shamir-keys.ts — GF(256) Shamir sharing and CK split/reconstruct

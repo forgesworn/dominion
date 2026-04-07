@@ -78,7 +78,7 @@ Encryption (AES-256-GCM):
 
 Shamir secret sharing (GF(256)):
 - splitSecret(secret, threshold, totalShares) -> CKShare[] -- split any secret
-- combineShares(shares) -> Uint8Array -- reconstruct from threshold shares
+- reconstructSecret(shares) -> Uint8Array -- reconstruct from threshold shares
 - splitCK(ck, threshold, total) -> CKShare[] -- split a 32-byte content key
 - reconstructCK(shares) -> Uint8Array -- reconstruct content key from shares
 - encodeCKShare(share) -> string -- encode as "index:hexdata"
@@ -271,7 +271,7 @@ All functions throw descriptive Error instances on invalid input:
 - encrypt/decrypt: "Content key must be 32 bytes", "Ciphertext too short"
 - splitCK: "Content key must be 32 bytes"
 - splitSecret: "Threshold cannot exceed total shares", "Threshold must be at least 2", "Total shares must be at least 2", "Total shares cannot exceed 255 (GF(256) limit)"
-- combineShares: "Need at least 2 shares to reconstruct", "Share index must be between 1 and 255", "Duplicate share indices detected", "All shares must have equal data length"
+- reconstructSecret: "Need at least 2 shares to reconstruct", "Share index must be between 1 and 255", "Duplicate share indices detected", "All shares must have equal data length"
 - decodeCKShare: "Invalid CK share: missing colon separator", "Invalid CK share: bad index", "Invalid CK share: bad hex data", "Invalid CK share: data must be 32 bytes (64 hex chars)"
 - buildVaultShareEvent: "Invalid author pubkey", "Invalid recipient pubkey", "Invalid content key hex"
 - buildVaultConfigEvent: "Invalid author pubkey"
