@@ -61,7 +61,7 @@ Combine with [nostr-attestations](https://github.com/forgesworn/nostr-attestatio
 | Institutional access | Tiered access with automatic key expiry |
 | Paid newsletters | One encryption operation, unlimited subscribers |
 
-For scenarios requiring instant revocation (custody disputes, institutional SLA), optional [warden relays](spec/protocol.md#13-warden-relays--optional-upgrade) provide true revocation using NIP-42 AUTH.
+For scenarios requiring instant revocation (custody disputes, institutional SLA), the designed [warden relays extension](spec/extensions/warden-relays.md) provides true revocation using NIP-42 AUTH. The extension is on the post-v1.0 roadmap; v1.0 ships with forward-only revocation only.
 
 ## Install
 
@@ -146,7 +146,7 @@ Built on NIP-01, NIP-09, NIP-40, NIP-44, NIP-59, and NIP-78. No new cryptographi
 
 ## Protocol Spec
 
-See [spec/protocol.md](spec/protocol.md) for the full protocol specification, including epoch rotation, tier management, individual grants, revocation, Lightning-gated access, and optional warden relay infrastructure.
+See [spec/protocol.md](spec/protocol.md) for the full v1.0 protocol specification: epoch rotation, tier management, individual grants, revocation, and Lightning-gated access. Designed extensions live in [spec/extensions/](spec/extensions/) — currently warden relays (instant revocation) and quantum vault (post-quantum CK derivation).
 
 ## Part of the ForgeSworn Toolkit
 

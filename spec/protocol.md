@@ -33,12 +33,17 @@ The protocol defines epoch-based key derivation, AES-GCM content encryption, gif
 10. [Metadata Privacy](#10-metadata-privacy)
 11. [Performance](#11-performance)
 12. [Lightning-Gated Access](#12-lightning-gated-access)
-13. [Warden Relays — Optional Upgrade](#13-warden-relays--optional-upgrade)
-14. [Alignment with Existing NIPs](#14-alignment-with-existing-nips)
-15. [Quantum Vault](#15-quantum-vault)
-16. [Use Cases](#16-use-cases)
-17. [Limitations](#17-limitations)
-18. [Reference Implementation](#18-reference-implementation)
+13. [Alignment with Existing NIPs](#13-alignment-with-existing-nips)
+14. [Use Cases](#14-use-cases)
+15. [Limitations](#15-limitations)
+16. [Reference Implementation](#16-reference-implementation)
+
+### Designed Extensions (post-v1.0)
+
+The following extensions are designed but not part of the v1.0 reference implementation. They live in `spec/extensions/` so the v1.0 surface stays focused on what ships today.
+
+- [Warden Relays](extensions/warden-relays.md) — true instant revocation via NIP-42 AUTH-gated key stores
+- [Quantum Vault](extensions/quantum-vault.md) — VMK + ML-KEM-768 decoupling of CK derivation from secp256k1
 
 ---
 
@@ -359,7 +364,7 @@ Revoked pubkeys are tracked in the vault configuration event (NIP-78, kind 30078
 
 ### True Revocation (Optional — Warden Relays)
 
-For users who need instant revocation (custody disputes, institutional access, paid content with immediate cancellation), optional warden relay infrastructure provides true revocation. See [Section 13](#13-warden-relays--optional-upgrade).
+For users who need instant revocation (custody disputes, institutional access, paid content with immediate cancellation), optional warden relay infrastructure is a designed extension to v1.0. See the [Warden Relays extension](extensions/warden-relays.md) for the full design.
 
 ### Why Forward-Only Is Good Enough
 
@@ -609,80 +614,7 @@ Dominion is a key distribution protocol, not a payment processor. It must never 
 
 ---
 
-## 13. Warden Relays — Optional Upgrade
-
-For users who need **true instant revocation** (not forward-only), optional warden relay infrastructure provides it.
-
-### What Warden Relays Do
-
-A warden relay is an AUTH-gated key-value store that:
-
-1. Stores CK shares (optionally Shamir-split) keyed by recipient pubkey
-2. Serves shares only to authenticated matching pubkeys (NIP-42)
-3. Honours DELETE requests from the content author
-4. Stores only encrypted key material — never content
-
-### True Revocation Flow
-
-```
-Author sends DELETE to warden relays
-         │
-         ▼
-Warden relays remove recipient's shares
-         │
-         ▼
-Recipient can no longer retrieve CK
-         │
-         ▼
-Content on content relays is unaffected (still encrypted)
-```
-
-### Shamir Secret Sharing (M-of-N)
-
-For redundancy and privacy, CKs can be Shamir-split across multiple warden relays:
-
-| Configuration | Meaning |
-|--------------|---------|
-| 1-of-1 | Single warden relay. Simple. |
-| 2-of-3 | Any 2 of 3 relays can reconstruct CK. Tolerates 1 relay failure. |
-| 3-of-5 | Any 3 of 5 relays. Tolerates 2 failures. Better privacy. |
-
-The recipient authenticates to M relays, retrieves M shares, and reconstructs the CK locally.
-
-### Content and Vault Separation
-
-Content relays and warden relays are separate concerns:
-
-| Relay type | Stores | Knows |
-|-----------|--------|-------|
-| Content relay | Encrypted content blobs | Author pubkey, ciphertext |
-| Warden relay | Encrypted CK shares | Recipient pubkey, share requests |
-
-No single relay sees both content and recipients. This is a strict metadata privacy improvement.
-
-### Progressive Sovereignty
-
-| Level | Key distribution | Revocation | Who controls |
-|-------|-----------------|------------|-------------|
-| **Managed** | Provider-hosted warden relay | True, instant | Provider |
-| **Self-hosted** | User's own warden relay | True, instant | User |
-| **Pure Nostr** | Gift-wrapped on standard relays | Forward-only (max 1 epoch) | User, fully sovereign |
-
-Switchable in either direction, per-epoch. No lock-in.
-
-### When to Use Warden Relays
-
-| Scenario | Gift-wrap (default) | Warden relay |
-|----------|-------------------|-------------|
-| Creator paywall | Sufficient | Overkill |
-| Private family sharing | Sufficient | Overkill |
-| Custody dispute with hostile co-parent | Insufficient | Recommended |
-| Institutional access with SLA | Insufficient | Recommended |
-| Paid content with instant cancellation | Insufficient | Recommended |
-
----
-
-## 14. Alignment with Existing NIPs
+## 13. Alignment with Existing NIPs
 
 Dominion builds on existing Nostr primitives and introduces minimal new surface area.
 
@@ -726,83 +658,7 @@ Total: approximately 100 lines of code to read vault-encrypted content. The hard
 
 ---
 
-## 15. Quantum Vault
-
-### The Problem
-
-Dominion derives Content Keys deterministically: `CK = HKDF(nostr_private_key, epoch, tier)`. The symmetric layer (AES-256-GCM, HKDF, Shamir) is quantum-resistant, but the Nostr private key is secp256k1 — vulnerable to Shor's algorithm. A quantum attacker who cracks the private key can re-derive every CK ever produced, decrypting all vault content.
-
-Migrating to a post-quantum Nostr identity in the future does not protect historical data — the old public key remains visible on relays.
-
-### The Solution
-
-A **Vault Master Key (VMK)** decouples CK derivation from the Nostr private key:
-
-```
-CK = HKDF(vmk, epoch, tier)   // VMK is random, not derived from secp256k1
-```
-
-The VMK is encrypted with ML-KEM-768 (NIST FIPS 203) and stored in the vault config. Even if a quantum attacker cracks the Nostr key and reads the NIP-44 self-encrypted config, the VMK inside is ML-KEM protected — unbreakable by quantum computers.
-
-### Vault Config Extension
-
-```jsonc
-{
-  "tiers": { ... },
-  "quantumVault": {
-    "version": 1,
-    "algorithm": "ml-kem-768",
-    "publicKey": "<base64, 1184 bytes>",
-    "encapsulation": "<base64, 1088 bytes>",
-    "encryptedVmk": "<base64, AES-256-GCM encrypted VMK>",
-    "activatedAt": 1709000000,
-    "activatedEpoch": "2026-W10"
-  }
-}
-```
-
-### How It Works
-
-**Setup (once):**
-
-1. Generate random 32-byte VMK
-2. Generate ML-KEM-768 keypair
-3. Encapsulate against public key → shared secret
-4. AES-256-GCM encrypt VMK with shared secret
-5. Store `QuantumVault` in vault config; store VMK and ML-KEM secret key locally
-
-**CK derivation (every epoch):**
-
-```
-deriveContentKey(vmkHex, epochId, tier)   // same function, VMK instead of privkey
-```
-
-**Recovery (new device):**
-
-1. Decrypt vault config (NIP-44)
-2. Decapsulate ML-KEM ciphertext with secret key → shared secret
-3. Decrypt VMK with shared secret
-4. Resume CK derivation
-
-### Overhead
-
-| Metric | Value |
-|--------|-------|
-| Storage in vault config | ~3.3 KB |
-| ML-KEM keygen | ~50 μs |
-| ML-KEM encapsulate/decapsulate | ~60–70 μs |
-| CK derivation change | Zero — same HKDF function |
-| Recipient-side change | Zero — CKs still distributed via gift-wrap |
-
-### Backward Compatibility
-
-- `quantumVault` is an optional field. Old configs work unchanged.
-- `activatedEpoch` marks the boundary: pre-activation content uses privkey-derived CKs, post-activation uses VMK-derived CKs.
-- Recipients are unaffected — they receive CKs via gift-wrap regardless of derivation method.
-
----
-
-## 16. Use Cases
+## 14. Use Cases
 
 ### Creator Economy
 
@@ -842,7 +698,7 @@ deriveContentKey(vmkHex, epochId, tier)   // same function, VMK instead of privk
 | Industry | Use case | How Dominion helps |
 |----------|----------|------------------|
 | **Healthcare** | Patient records shared with providers | Epoch rotation = automatic access expiry for consultants |
-| **Legal** | Client-privileged documents | M-of-N warden relays for law firm dissolution |
+| **Legal** | Client-privileged documents | Forward-only revocation today; M-of-N warden relays planned (see [extension](extensions/warden-relays.md)) for law firm dissolution scenarios |
 | **Journalism** | Source protection, embargo management | Dead man's switch, time-locked epoch key release |
 | **Academic** | Peer review, research collaboration | Vault-encrypted datasets, revocable on departure |
 | **HR** | Employee records, offboarding | Stop distributing epoch keys = clean access removal |
@@ -869,11 +725,11 @@ deriveContentKey(vmkHex, epochId, tier)   // same function, VMK instead of privk
 
 ---
 
-## 17. Limitations
+## 15. Limitations
 
 | Limitation | Why it's acceptable |
 |-----------|-------------------|
-| **Forward-only revocation by default** | Weekly epochs cap exposure at 7 days. True revocation available via warden relays for users who need it. Same model as Signal/WhatsApp. |
+| **Forward-only revocation by default** | Weekly epochs cap exposure at 7 days. True instant revocation is a designed [warden relays extension](extensions/warden-relays.md) for users who need it. Same model as Signal/WhatsApp. |
 | **CK cached by recipient** | A recipient who caches a CK retains access to that epoch's content forever. This is inherent to all E2E systems — you can't un-show someone a message. |
 | **Epoch granularity** | Access is per-epoch, not per-event. All content in an epoch shares one CK. For per-event access control, use NIP-44 directly. |
 | **Author must be online to distribute** | CKs are distributed by the author's client. If the author is offline for an entire epoch, new recipients won't get keys until the author comes online. |
@@ -914,7 +770,7 @@ The `algo` tag is a zero-cost hedge: it adds one tag per event today and unlocks
 
 ---
 
-## 18. Reference Implementation
+## 16. Reference Implementation
 
 The reference implementation is [`dominion-protocol`](https://github.com/forgesworn/dominion), a standalone npm package providing the core cryptography (HKDF, AES-GCM, Shamir) and Nostr event layer as a two-layer library:
 
