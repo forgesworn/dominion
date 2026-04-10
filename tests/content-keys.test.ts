@@ -131,4 +131,116 @@ describe('content key derivation', () => {
       'Tier must not contain colons',
     );
   });
+
+  describe('daily epoch IDs', () => {
+    it('returns YYYY-MM-DD for a specific date', () => {
+      const epoch = getEpochIdForDate(new Date(Date.UTC(2026, 3, 13)), 'daily');
+      expect(epoch).toBe('2026-04-13');
+    });
+
+    it('zero-pads single-digit months and days', () => {
+      const epoch = getEpochIdForDate(new Date(Date.UTC(2026, 0, 5)), 'daily');
+      expect(epoch).toBe('2026-01-05');
+    });
+
+    it('handles year boundary', () => {
+      const lastDay = getEpochIdForDate(new Date(Date.UTC(2025, 11, 31)), 'daily');
+      const firstDay = getEpochIdForDate(new Date(Date.UTC(2026, 0, 1)), 'daily');
+      expect(lastDay).toBe('2025-12-31');
+      expect(firstDay).toBe('2026-01-01');
+    });
+
+    it('uses UTC consistently', () => {
+      const a = getEpochIdForDate(new Date(Date.UTC(2026, 3, 13, 0, 0, 0)), 'daily');
+      const b = getEpochIdForDate(new Date(Date.UTC(2026, 3, 13, 23, 59, 59)), 'daily');
+      expect(a).toBe(b);
+    });
+
+    it('produces different keys for adjacent days', () => {
+      const dayA = getEpochIdForDate(new Date(Date.UTC(2026, 3, 13)), 'daily');
+      const dayB = getEpochIdForDate(new Date(Date.UTC(2026, 3, 14)), 'daily');
+      const ckA = deriveContentKey(TEST_PRIVKEY_HEX, dayA, TEST_TIER);
+      const ckB = deriveContentKey(TEST_PRIVKEY_HEX, dayB, TEST_TIER);
+      expect(contentKeyToHex(ckA)).not.toBe(contentKeyToHex(ckB));
+    });
+
+    it('getCurrentEpochId(daily) matches the YYYY-MM-DD pattern', () => {
+      expect(getCurrentEpochId('daily')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe('monthly epoch IDs', () => {
+    it('returns YYYY-MM for a specific date', () => {
+      const epoch = getEpochIdForDate(new Date(Date.UTC(2026, 3, 13)), 'monthly');
+      expect(epoch).toBe('2026-04');
+    });
+
+    it('zero-pads single-digit months', () => {
+      const epoch = getEpochIdForDate(new Date(Date.UTC(2026, 0, 15)), 'monthly');
+      expect(epoch).toBe('2026-01');
+    });
+
+    it('every day of a month maps to the same monthly epoch', () => {
+      const first = getEpochIdForDate(new Date(Date.UTC(2026, 3, 1)), 'monthly');
+      const last = getEpochIdForDate(new Date(Date.UTC(2026, 3, 30)), 'monthly');
+      expect(first).toBe(last);
+    });
+
+    it('handles year boundary', () => {
+      const dec = getEpochIdForDate(new Date(Date.UTC(2025, 11, 31)), 'monthly');
+      const jan = getEpochIdForDate(new Date(Date.UTC(2026, 0, 1)), 'monthly');
+      expect(dec).toBe('2025-12');
+      expect(jan).toBe('2026-01');
+    });
+
+    it('produces different keys for adjacent months', () => {
+      const monthA = getEpochIdForDate(new Date(Date.UTC(2026, 3, 13)), 'monthly');
+      const monthB = getEpochIdForDate(new Date(Date.UTC(2026, 4, 13)), 'monthly');
+      const ckA = deriveContentKey(TEST_PRIVKEY_HEX, monthA, TEST_TIER);
+      const ckB = deriveContentKey(TEST_PRIVKEY_HEX, monthB, TEST_TIER);
+      expect(contentKeyToHex(ckA)).not.toBe(contentKeyToHex(ckB));
+    });
+
+    it('getCurrentEpochId(monthly) matches the YYYY-MM pattern', () => {
+      expect(getCurrentEpochId('monthly')).toMatch(/^\d{4}-\d{2}$/);
+    });
+  });
+
+  describe('epoch ID format isolation', () => {
+    it('the three formats are mutually distinguishable', () => {
+      const date = new Date(Date.UTC(2026, 3, 13));
+      const daily = getEpochIdForDate(date, 'daily');
+      const weekly = getEpochIdForDate(date, 'weekly');
+      const monthly = getEpochIdForDate(date, 'monthly');
+      expect(daily).toBe('2026-04-13');
+      expect(weekly).toMatch(/^\d{4}-W\d{2}$/);
+      expect(monthly).toBe('2026-04');
+      // Visual distinction: weekly has W, daily has two dashes, monthly has one
+      expect(weekly).not.toBe(daily);
+      expect(weekly).not.toBe(monthly);
+      expect(daily).not.toBe(monthly);
+    });
+
+    it('produces distinct CKs across the three lengths for the same date', () => {
+      const date = new Date(Date.UTC(2026, 3, 13));
+      const ckDaily = deriveContentKey(TEST_PRIVKEY_HEX, getEpochIdForDate(date, 'daily'), TEST_TIER);
+      const ckWeekly = deriveContentKey(TEST_PRIVKEY_HEX, getEpochIdForDate(date, 'weekly'), TEST_TIER);
+      const ckMonthly = deriveContentKey(TEST_PRIVKEY_HEX, getEpochIdForDate(date, 'monthly'), TEST_TIER);
+      expect(contentKeyToHex(ckDaily)).not.toBe(contentKeyToHex(ckWeekly));
+      expect(contentKeyToHex(ckWeekly)).not.toBe(contentKeyToHex(ckMonthly));
+      expect(contentKeyToHex(ckDaily)).not.toBe(contentKeyToHex(ckMonthly));
+    });
+  });
+
+  describe('backwards compatibility', () => {
+    it('getEpochIdForDate(date) without length still returns weekly format', () => {
+      const epoch = getEpochIdForDate(new Date(2026, 1, 26));
+      expect(epoch).toMatch(/^\d{4}-W\d{2}$/);
+    });
+
+    it('getCurrentEpochId() without length still returns weekly format', () => {
+      const epoch = getCurrentEpochId();
+      expect(epoch).toMatch(/^\d{4}-W\d{2}$/);
+    });
+  });
 });

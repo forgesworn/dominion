@@ -154,12 +154,15 @@ CK = HKDF-SHA256(
 
 ### Epoch ID Format
 
-Epochs use ISO 8601 week format: `YYYY-Www`
+Epoch IDs are ISO 8601 strings whose format depends on the configured length:
 
-| Example | Meaning |
-|---------|---------|
-| `2026-W09` | Week 9 of 2026 (24 Feb – 2 Mar) |
-| `2026-W10` | Week 10 of 2026 (3 Mar – 9 Mar) |
+| Length | Format | Example | Meaning |
+|--------|--------|---------|---------|
+| Daily | `YYYY-MM-DD` | `2026-04-13` | 13 April 2026 |
+| Weekly | `YYYY-Www` | `2026-W15` | Week 15 of 2026 (6–12 Apr) |
+| Monthly | `YYYY-MM` | `2026-04` | April 2026 |
+
+The three formats are visually distinct (the `W` prefix disambiguates weekly from monthly) and each maps to a single calendar period in UTC. Weekly is the default and matches NIP-78 epoch conventions used elsewhere in Nostr.
 
 ### Why Deterministic?
 
@@ -177,7 +180,7 @@ Epoch length is configurable per tier:
 | Moderate trust (connections) | Weekly | 7 days | Balanced |
 | Low trust (individual grants) | Daily | 24 hours | Tight exposure window |
 
-Implementations SHOULD default to weekly epochs. Implementations MAY support per-tier epoch configuration.
+Implementations SHOULD default to weekly epochs. Implementations MAY support per-tier epoch configuration. The reference implementation ships helpers for all three lengths via `getEpochIdForDate(date, length)` and `getCurrentEpochId(length)`, defaulting to weekly when no length is supplied.
 
 ---
 

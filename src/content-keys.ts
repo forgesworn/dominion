@@ -2,6 +2,7 @@ import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { CK_SALT } from './constants.js';
+import type { EpochLength } from './types.js';
 
 /**
  * Derive a 32-byte Content Key for a given epoch and tier.
@@ -24,15 +25,36 @@ export function contentKeyToHex(ck: Uint8Array): string {
   return bytesToHex(ck);
 }
 
-/** Get the current ISO week epoch ID (format: YYYY-Www). */
-export function getCurrentEpochId(): string {
-  return getEpochIdForDate(new Date());
+/**
+ * Get the current epoch ID for a given epoch length. Defaults to weekly.
+ *
+ * Format depends on length:
+ *   - daily   → `YYYY-MM-DD` (ISO 8601 date)
+ *   - weekly  → `YYYY-Www`   (ISO 8601 week)
+ *   - monthly → `YYYY-MM`    (ISO 8601 year-month)
+ */
+export function getCurrentEpochId(length: EpochLength = 'weekly'): string {
+  return getEpochIdForDate(new Date(), length);
 }
 
-/** Get the ISO week epoch ID for a specific date (format: YYYY-Www). Uses UTC to ensure cross-timezone consistency. */
-export function getEpochIdForDate(date: Date): string {
+/**
+ * Get the epoch ID for a specific date and epoch length. Uses UTC to
+ * ensure cross-timezone consistency. Defaults to weekly for backwards
+ * compatibility with the original single-argument call.
+ */
+export function getEpochIdForDate(date: Date, length: EpochLength = 'weekly'): string {
   if (Number.isNaN(date.getTime())) throw new Error('Invalid date');
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  if (length === 'daily') {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+  if (length === 'monthly') {
+    return `${year}-${String(month).padStart(2, '0')}`;
+  }
+  // Weekly (default) — ISO 8601 week computation, unchanged from v1.0.
+  const d = new Date(Date.UTC(year, date.getUTCMonth(), day));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));

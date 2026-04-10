@@ -9,12 +9,13 @@
  *
  * Demonstrates:
  *   - A custom tier name (`peer_support`) outside the default tier set
- *   - Weekly epochs across three sessions
- *   - A peer joining the group mid-cycle
+ *   - Daily epochs — 24-hour exposure window suited to higher-churn
+ *     membership in a sensitive group
+ *   - A peer joining the group mid-week
  *   - A peer leaving the group, with revocation as the routine path
  *   - How a Muster-style client would gate membership on a Signet
  *     credential check (sketched in comments — the actual cross-package
- *     integration lives in a separate example)
+ *     integration lives in `signet-gated-vault.ts`)
  *
  * In a Muster deployment the host's private key would come from a
  * Nostr signer. The group would publish messages as standard Nostr
@@ -55,10 +56,11 @@ const DANI = '55'.repeat(32);
 // colon (the protocol uses `:` as the epoch/tier delimiter in the
 // HKDF info string and the d-tag).
 //
-// Weekly epochs are the protocol's recommended default (spec §4) and
-// what the `getEpochIdForDate` helper returns. The spec allows per-tier
-// daily epochs for higher-churn membership; implementing daily IDs is
-// a client-side extension at present.
+// Daily epochs cap the worst-case exposure window at 24 hours. For a
+// peer support group where someone might quietly step away after a
+// difficult session, that's a sensible default. The reference
+// implementation ships daily, weekly, and monthly helpers via
+// `getEpochIdForDate(date, length)`.
 
 let config = defaultConfig();
 config = addToTier(config, 'peer_support', ALICE);
@@ -66,7 +68,7 @@ config = addToTier(config, 'peer_support', BEN);
 config = addToTier(config, 'peer_support', CHRIS);
 config = {
   ...config,
-  epochConfig: { peer_support: 'weekly' },
+  epochConfig: { peer_support: 'daily' },
 };
 
 console.log('Initial peer_support tier:', (config.tiers['peer_support'] as string[]).map((p) => `${p.slice(0, 8)}…`));
@@ -93,102 +95,103 @@ console.log('Epoch length:             ', config.epochConfig?.peer_support);
 // actual integration end to end.
 
 // ---------------------------------------------------------------------------
-// 3. Week 16 — first session
+// 3. Day 1 — first session
 // ---------------------------------------------------------------------------
 
-const week16 = getEpochIdForDate(new Date('2026-04-13'));
-const week16Ck = deriveContentKey(HOST_PRIVKEY, week16, 'peer_support');
+const day1 = getEpochIdForDate(new Date('2026-04-13'), 'daily');
+const day1Ck = deriveContentKey(HOST_PRIVKEY, day1, 'peer_support');
 
-console.log(`\nWeek 16 epoch:  ${week16}`);
-console.log(`Week 16 CK:     ${contentKeyToHex(week16Ck)}`);
+console.log(`\nDay 1 epoch:    ${day1}`);
+console.log(`Day 1 CK:       ${contentKeyToHex(day1Ck)}`);
 
-const week16Message = 'Welcome everyone. Tonight we\'re going to talk about sleep.';
-const week16Ciphertext = encrypt(week16Message, week16Ck);
+const day1Message = 'Welcome everyone. Tonight we\'re going to talk about sleep.';
+const day1Ciphertext = encrypt(day1Message, day1Ck);
 
-const sharesWeek16 = (config.tiers['peer_support'] as string[]).map((peer) =>
-  buildVaultShareEvent(HOST_PUBKEY, peer, contentKeyToHex(week16Ck), week16, 'peer_support'),
+const sharesDay1 = (config.tiers['peer_support'] as string[]).map((peer) =>
+  buildVaultShareEvent(HOST_PUBKEY, peer, contentKeyToHex(day1Ck), day1, 'peer_support'),
 );
 
-console.log(`Distributed ${sharesWeek16.length} shares for week 16`);
+console.log(`Distributed ${sharesDay1.length} shares for day 1`);
 
 // Each peer unwraps their gift, decrypts the share, and reads the message.
-console.assert(decrypt(week16Ciphertext, week16Ck) === week16Message, 'Week 16 round-trip failed');
+console.assert(decrypt(day1Ciphertext, day1Ck) === day1Message, 'Day 1 round-trip failed');
 
 // ---------------------------------------------------------------------------
-// 4. Week 17 — Dani joins the group
+// 4. Day 2 — Dani joins the group
 // ---------------------------------------------------------------------------
 //
-// A new peer is added the following week. They are sent the CURRENT
-// epoch CK only — the protocol's grant scope rule. Dani can read this
-// week's session onwards but cannot retroactively decrypt week 16.
+// A new peer is added the next day. They are sent the CURRENT epoch CK
+// only — the protocol's grant scope rule. Dani can read this session
+// onwards but cannot retroactively decrypt yesterday.
 
 config = addToTier(config, 'peer_support', DANI);
 
-const week17 = getEpochIdForDate(new Date('2026-04-20'));
-const week17Ck = deriveContentKey(HOST_PRIVKEY, week17, 'peer_support');
+const day2 = getEpochIdForDate(new Date('2026-04-14'), 'daily');
+const day2Ck = deriveContentKey(HOST_PRIVKEY, day2, 'peer_support');
 
-console.log(`\nWeek 17 epoch:  ${week17}`);
+console.log(`\nDay 2 epoch:    ${day2}`);
 console.log(`Members:        ${(config.tiers['peer_support'] as string[]).length}`);
 
-const sharesWeek17 = (config.tiers['peer_support'] as string[]).map((peer) =>
-  buildVaultShareEvent(HOST_PUBKEY, peer, contentKeyToHex(week17Ck), week17, 'peer_support'),
+const sharesDay2 = (config.tiers['peer_support'] as string[]).map((peer) =>
+  buildVaultShareEvent(HOST_PUBKEY, peer, contentKeyToHex(day2Ck), day2, 'peer_support'),
 );
 
-console.log(`Distributed ${sharesWeek17.length} shares for week 17 (Dani included)`);
+console.log(`Distributed ${sharesDay2.length} shares for day 2 (Dani included)`);
 
-// Dani only ever received the week 17 CK. Her cached key cannot decrypt week 16.
-let daniCanReadWeek16 = true;
+// Dani only ever received the day 2 CK. Her cached key cannot decrypt day 1.
+let daniCanReadDay1 = true;
 try {
-  decrypt(week16Ciphertext, week17Ck);
+  decrypt(day1Ciphertext, day2Ck);
 } catch {
-  daniCanReadWeek16 = false;
+  daniCanReadDay1 = false;
 }
-console.log(`Dani tries to decrypt week 16 with her week 17 key: ${daniCanReadWeek16 ? 'succeeded (BUG)' : 'failed (correct)'}`);
-console.assert(!daniCanReadWeek16, 'Grant scope violated — new joiner saw historical content');
+console.log(`Dani tries to decrypt day 1 with her day 2 key: ${daniCanReadDay1 ? 'succeeded (BUG)' : 'failed (correct)'}`);
+console.assert(!daniCanReadDay1, 'Grant scope violated — new joiner saw historical content');
 
 // ---------------------------------------------------------------------------
-// 5. Week 18 — Ben steps away
+// 5. Day 3 — Ben steps away
 // ---------------------------------------------------------------------------
 //
 // Ben quietly leaves the group. This is the routine path: no
 // confrontation, no incident, just a config change. Removing him from
-// the tier means the next epoch rotation skips him.
+// the tier means the next epoch rotation skips him. With daily epochs
+// his exposure to future content ends within 24 hours.
 
 config = removeFromTier(config, 'peer_support', BEN);
 
-const week18 = getEpochIdForDate(new Date('2026-04-27'));
-const week18Ck = deriveContentKey(HOST_PRIVKEY, week18, 'peer_support');
+const day3 = getEpochIdForDate(new Date('2026-04-15'), 'daily');
+const day3Ck = deriveContentKey(HOST_PRIVKEY, day3, 'peer_support');
 
-console.log(`\nWeek 18 epoch:  ${week18}`);
+console.log(`\nDay 3 epoch:    ${day3}`);
 console.log(`Members:        ${(config.tiers['peer_support'] as string[]).length}`);
 
-const sharesWeek18 = (config.tiers['peer_support'] as string[]).map((peer) =>
-  buildVaultShareEvent(HOST_PUBKEY, peer, contentKeyToHex(week18Ck), week18, 'peer_support'),
+const sharesDay3 = (config.tiers['peer_support'] as string[]).map((peer) =>
+  buildVaultShareEvent(HOST_PUBKEY, peer, contentKeyToHex(day3Ck), day3, 'peer_support'),
 );
 
-console.log(`Distributed ${sharesWeek18.length} shares for week 18 (Ben excluded)`);
+console.log(`Distributed ${sharesDay3.length} shares for day 3 (Ben excluded)`);
 
 console.assert(
-  !sharesWeek18.some((s) => s.tags.find((t) => t[0] === 'p')?.[1] === BEN),
-  'Ben should not appear in week 18 distribution',
+  !sharesDay3.some((s) => s.tags.find((t) => t[0] === 'p')?.[1] === BEN),
+  'Ben should not appear in day 3 distribution',
 );
 
-// Ben can still read weeks 16 and 17 from his cached CKs. He cannot
-// read week 18 — the new CK was never sent to him. The exposure
-// window after removal is bounded by the remaining time in the
-// current epoch (worst case: 7 days).
+// Ben can still read days 1 and 2 from his cached CKs. He cannot read
+// day 3 — the new CK was never sent to him. Forward-only revocation
+// is honest about its limits: anything Ben already decrypted remains
+// decrypted, but the next 24 hours of content is inaccessible.
 
-const week18Message = 'Quiet check-in tonight. Take what you need from the group.';
-const week18Ciphertext = encrypt(week18Message, week18Ck);
+const day3Message = 'Quiet check-in tonight. Take what you need from the group.';
+const day3Ciphertext = encrypt(day3Message, day3Ck);
 
-let benCanReadWeek18 = true;
+let benCanReadDay3 = true;
 try {
-  decrypt(week18Ciphertext, week16Ck);
+  decrypt(day3Ciphertext, day1Ck);
 } catch {
-  benCanReadWeek18 = false;
+  benCanReadDay3 = false;
 }
-console.log(`Ben tries week 16 key on week 18 message: ${benCanReadWeek18 ? 'succeeded (BUG)' : 'failed (correct)'}`);
-console.assert(!benCanReadWeek18, 'Forward-only revocation breach');
+console.log(`Ben tries day 1 key on day 3 message: ${benCanReadDay3 ? 'succeeded (BUG)' : 'failed (correct)'}`);
+console.assert(!benCanReadDay3, 'Forward-only revocation breach');
 
 // ---------------------------------------------------------------------------
 // 6. Build the vault config event
@@ -211,8 +214,8 @@ console.log('(content is plaintext JSON — caller MUST NIP-44 self-encrypt befo
 
 console.log('\n---');
 console.log('Summary:');
-console.log('  - Custom peer_support tier with weekly epochs');
-console.log('  - Dani joined in week 17: gets week 17 onwards, cannot read week 16');
-console.log('  - Ben left in week 18: keeps weeks 16 + 17, cannot read week 18');
+console.log('  - Custom peer_support tier with daily epochs (24h exposure window)');
+console.log('  - Dani joined on day 2: gets day 2 onwards, cannot read day 1');
+console.log('  - Ben left on day 3: keeps days 1 + 2, cannot read day 3');
 console.log('  - All membership changes are routine config mutations');
 console.log('  - Signet credential gating is a Muster client concern, not a protocol concern');
