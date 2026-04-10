@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/forgesworn/dominion/compare/v1.0.0...v1.1.0) (2026-04-10)
+
+
+### Features
+
+* **epochs:** add daily and monthly epoch ID helpers ([57cbfc3](https://github.com/forgesworn/dominion/commit/57cbfc35a0bf6b814b3c69a8c7c5a849194783a2))
+
 # 1.0.0 (2026-03-31)
 
 
