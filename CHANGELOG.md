@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/forgesworn/dominion/compare/v1.1.0...v1.1.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* resolve development dependency vulnerabilities ([8248b89](https://github.com/forgesworn/dominion/commit/8248b897436d9d3836cf4647e2c88bca67c214bc))
+
 # [1.1.0](https://github.com/forgesworn/dominion/compare/v1.0.0...v1.1.0) (2026-04-10)
 
 
