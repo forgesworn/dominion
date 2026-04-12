@@ -8,6 +8,7 @@
 [![CI](https://github.com/forgesworn/dominion/actions/workflows/ci.yml/badge.svg)](https://github.com/forgesworn/dominion/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-native-blue)](https://www.typescriptlang.org/)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/TheCryptoDonkey?logo=githubsponsors&color=ea4aaa&label=Sponsor)](https://github.com/sponsors/TheCryptoDonkey)
 
 [Protocol Spec](spec/protocol.md) · [NIP Draft](nip-draft.md) · [LLM Reference](llms.txt) · [Contributing](CONTRIBUTING.md)
 
