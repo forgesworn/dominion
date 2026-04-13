@@ -66,6 +66,6 @@ Two-layer exports:
 
 ## Release
 
-- semantic-release on push to main — do NOT manually bump version
+- `forgesworn/anvil@v0` on push to main — do NOT manually bump version. `auto-release.yml` bumps the version and creates a GitHub Release; `release.yml` runs pre-publish gates and publishes to npm via OIDC.
 - Commit messages drive versioning: `feat:` → minor, `fix:` → patch, `feat!:` → major
 - CI runs lint, typecheck, build, test across Node 20/22/24
