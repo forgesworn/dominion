@@ -199,6 +199,12 @@ const encrypted = encryptBlob(imageBytes, ck);     // Uint8Array(iv || ciphertex
 const decrypted = decryptBlob(encrypted, ck);      // original image bytes
 ```
 
+The blob frame carries no magic bytes or version field, so a store that admits
+third-party blobs by header check cannot recognise it. Upload to a
+content-addressed server that accepts any bytes from an authorised uploader; do
+not assume the blob can be replicated to a shelter by anyone but its author.
+See spec/protocol.md section 5, "Shelter Compatibility".
+
 ### Shamir split for key recovery (2-of-3)
 
 ```typescript
