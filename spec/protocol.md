@@ -243,6 +243,19 @@ Binary content (images, video, documents) follows the same pattern:
 
 The content-addressed server stores only opaque ciphertext. It never sees plaintext.
 
+### Shelter Compatibility
+
+The ciphertext format above is a single-shot AES-GCM frame — `iv || ciphertext || tag` — with no magic bytes, no version field, no chunking and no padding. That is sufficient for a content-addressed server that accepts any bytes from an authorised uploader, and it is what implementations write today.
+
+It is **not** sufficient for a store that admits third-party blobs conditionally. [Bothy](https://github.com/forgesworn/bothy) §3.8 requires every blob a node holds for someone other than its own keeper to carry the `FSWNENC2` envelope header, and checks the magic and version before granting the claim — a check made without ever holding a key. A Dominion media blob therefore cannot be sheltered on such a node by anyone but the author who uploaded it; mirrored to a third party's node, it is refused.
+
+Two properties of the current frame are worth stating plainly for implementers:
+
+- **A blob cannot be assumed replicable to an arbitrary shelter.** The absent header is not the only obstacle — whole-blob buffering is required to encrypt or decrypt, because there are no record boundaries to stream over.
+- **Exact plaintext length is not hidden.** The frame adds a fixed 28 bytes to the source, so ciphertext size is metadata.
+
+**This is an open question, not a decided change.** The natural resolution is to seal media blobs in the `FSWNENC2` envelope ([Stash](https://github.com/forgesworn/stash), `spec/protocol.md` §4.1), whose per-envelope key derivation is deliberately agnostic about where its input key came from — so an epoch CK becomes a third key model beside the per-file and vault keys already defined. That would supply the header check, chunked records and padding together. Whether it lands as a major version or as an additive call, and whether event payloads (§5 *Ciphertext Format*) keep the current frame, is undecided. The analysis is `docs/2026-09-03-dominion-envelope-finding.md` in the Bothy repository.
+
 ### Migration
 
 Events encrypted with Dominion coexist with plaintext and NIP-44 encrypted events on the same relays. No batch migration is needed — new content uses Dominion, old content remains readable via its original method.
@@ -735,6 +748,7 @@ Total: approximately 100 lines of code to read vault-encrypted content. The hard
 | **Author must be online to distribute** | CKs are distributed by the author's client. If the author is offline for an entire epoch, new recipients won't get keys until the author comes online. |
 | **Key derivation requires private key** | CKs are derived from the author's private key material. Implementations using NIP-46 (remote signing) must handle CK derivation at the signer, not the client. |
 | **No retroactive revocation** | Revoking a recipient doesn't un-encrypt content they've already decrypted. To truly revoke past access: re-encrypt with new CK, re-distribute, publish replacement events. Expensive but possible. |
+| **Blob format is not shelter-compatible** | The ciphertext frame carries no magic or version, so a store that admits third-party blobs by header check cannot recognise it without a key. Fine for a content-addressed server that accepts any bytes from an authorised uploader; it means a media blob cannot be replicated to such a shelter by anyone but its author. See §5 *Shelter Compatibility*. |
 
 ### Quantum Readiness
 
