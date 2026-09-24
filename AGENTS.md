@@ -1,4 +1,4 @@
-# AGENTS.md — dominion-protocol
+# AGENTS.md: dominion-protocol
 
 Instructions in this file apply to the entire repository.
 
@@ -12,52 +12,74 @@ Instructions in this file apply to the entire repository.
 
 ## Key Commands
 
-- `npm run build` — compile TypeScript into `dist/`
-- `npm test` — run the Vitest suite
-- `npm run test:watch` — run tests in watch mode
-- `npm run typecheck` — TypeScript type-check without emitting
-- `npm run lint` — biome check src/ tests/
-- `npm run lint:fix` — biome check --write src/ tests/
+- `npm run build`: compile TypeScript into `dist/`
+- `npm test`: run the Vitest suite
+- `npm run test:watch`: run tests in watch mode
+- `npm run typecheck`: TypeScript type-check without emitting
+- `npm run lint`: biome check src/ tests/
+- `npm run lint:fix`: biome check --write src/ tests/
+- `npm run clean`: rm -rf dist/
 
 ## Repository Structure
 
-- `src/index.ts` — core layer public API exports
-- `src/nostr/index.ts` — Nostr layer public API exports
-- `src/types.ts` — all shared types (`DominionConfig`, `CKShare`, `VaultShareData`, `NostrEvent`, etc.)
-- `src/constants.ts` — protocol constants (kinds, salt, version, epoch defaults)
-- `src/config.ts` — config mutations (`addToTier`, `removeFromTier`, `revokePubkey`, `unrevokePubkey`, `addIndividualGrant`, `removeIndividualGrant`, `defaultConfig`)
-- `src/content-keys.ts` — HKDF content key derivation and epoch ID helpers
-- `src/encrypt.ts` — AES-256-GCM encrypt/decrypt (text and blob variants)
-- `src/shamir.ts` — GF(256) Shamir secret sharing primitives
-- `src/shamir-keys.ts` — CK splitting/reconstruction (`splitCK`, `reconstructCK`, `encodeCKShare`, `decodeCKShare`)
-- `src/nostr/vault-config.ts` — kind 30078 Vault Config event builder/parser
-- `src/nostr/vault-share.ts` — kind 30480 Vault Share event builder/parser
-- `spec/protocol.md` — full protocol specification
-- `tests/fixtures.ts` — shared test data (keys, epochs, configs)
-- `dist/` — build output (generated, do not edit by hand)
+- `src/index.ts`: core layer public API exports
+- `src/nostr/index.ts`: Nostr layer public API exports
+- `src/types.ts`: all shared types (`DominionConfig`, `CKShare`, `VaultShareData`, `NostrEvent`, etc.)
+- `src/constants.ts`: protocol constants (kinds, salt, version, epoch defaults)
+- `src/config.ts`: config mutations (`addToTier`, `removeFromTier`, `revokePubkey`, `unrevokePubkey`, `addIndividualGrant`, `removeIndividualGrant`, `defaultConfig`)
+- `src/content-keys.ts`: HKDF content key derivation and epoch ID helpers
+- `src/encrypt.ts`: AES-256-GCM encrypt/decrypt (text and blob variants)
+- `src/shamir.ts`: GF(256) Shamir secret sharing primitives
+- `src/shamir-keys.ts`: CK splitting/reconstruction (`splitCK`, `reconstructCK`, `encodeCKShare`, `decodeCKShare`)
+- `src/nostr/vault-config.ts`: kind 30078 Vault Config event builder/parser
+- `src/nostr/vault-share.ts`: kind 30480 Vault Share event builder/parser
+- `spec/protocol.md`: full protocol specification
+- `tests/fixtures.ts`: shared test data (keys, epochs, configs)
+- `dist/`: build output (generated, do not edit by hand)
+- `nip-draft.md`: stripped NIP for nostr-protocol/nips submission
+- `llms.txt`: AI-optimised API reference (shipped in the npm package)
+
+## Architecture
+
+Two subpath exports: `dominion-protocol` (core crypto primitives, no Nostr
+knowledge) and `dominion-protocol/nostr` (Nostr event builders/parsers for
+kind 30480 Vault Share and NIP-78 kind 30078 Vault Config).
+
+## Dependencies
+
+- `@noble/hashes`: HKDF-SHA256, SHA-256, hex utilities.
+- `@noble/ciphers`: AES-256-GCM (synchronous, pure JS).
+
+## Crypto Details
+
+- CK derivation: `HKDF-SHA256(ikm=privkey, salt="dominion-ck-v1", info="epoch:{epochId}:tier:{tier}")`.
+- Encryption: AES-256-GCM, 12-byte random IV, output = `base64(iv || ciphertext || tag)`.
+- Shamir: GF(256) with irreducible polynomial 0x11b.
+- Epoch format: ISO 8601 weeks `YYYY-Www`.
 
 ## Coding Conventions
 
-- **British English** — colour, initialise, behaviour, licence, organise.
-- **Pure functions** — all functions take data in and return data out; no mutation of input objects.
-- **ESM-only** — maintain ESM-compatible imports with `.js` extensions.
-- **TDD** — add a failing test first, then implement.
-- **Input validation** — all public APIs validate inputs and throw descriptive errors on invalid parameters.
-- **Two-layer discipline** — never import Nostr types or event shapes into `src/` (core layer); keep them in `src/nostr/`.
-- **Commit messages** — `type: description` format (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`). Do NOT include `Co-Authored-By` lines.
+- **British English**: colour, initialise, behaviour, licence, organise.
+- **Pure functions**: all functions take data in and return data out; no mutation of input objects.
+- **ESM-only**: maintain ESM-compatible imports with `.js` extensions.
+- **TDD**: add a failing test first, then implement.
+- **Input validation**: all public APIs validate inputs and throw descriptive errors on invalid parameters.
+- **Two-layer discipline**: never import Nostr types or event shapes into `src/` (core layer); keep them in `src/nostr/`.
+- **Commit messages**: `type: description` format (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`). Do NOT include `Co-Authored-By` lines.
 
 ## Working Guidelines
 
 - Do not edit generated output in `dist/` by hand.
 - Run `npm run typecheck` and `npm test` before considering any change complete.
 - When changing public API exports, update both `src/index.ts` and `src/nostr/index.ts` as appropriate.
-- `buildVaultConfigEvent` and `buildVaultShareEvent` intentionally return unencrypted content — the caller handles NIP-44. Do not change this contract.
-- Epoch IDs use ISO 8601 week format `YYYY-Www` — do not introduce other formats.
+- `buildVaultConfigEvent` and `buildVaultShareEvent` intentionally return unencrypted content: the caller handles NIP-44. Do not change this contract.
+- Epoch IDs use ISO 8601 week format `YYYY-Www`: do not introduce other formats.
 - Keep `spec/protocol.md` in sync when protocol behaviour changes.
 
 ## Release Notes
 
-- Automated via semantic-release — do NOT manually bump the version.
-- `fix:` = patch, `feat:` = minor, `BREAKING CHANGE:` in commit body = major.
+- `forgesworn/anvil@v0` on push to main: do NOT manually bump the version.
+  `auto-release.yml` bumps the version and creates a GitHub Release;
+  `release.yml` runs pre-publish gates and publishes to npm via OIDC.
+- Commit messages drive versioning: `feat:` → minor, `fix:` → patch, `feat!:` → major.
 - CI runs lint, typecheck, build, and test across Node 20/22/24.
-- GitHub Actions uses OIDC trusted publishing.
