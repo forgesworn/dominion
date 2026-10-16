@@ -8,7 +8,7 @@ Instructions in this file apply to the entire repository.
 - HKDF-SHA256 content key derivation per epoch and tier, AES-256-GCM encryption, GF(256) Shamir secret sharing.
 - Two-layer architecture: core crypto primitives are Nostr-free; Nostr layer builds/parses kind 30078 and kind 30480 events.
 - ESM-only package (`"type": "module"`).
-- Requires Node.js 20+.
+- Requires Node.js 20.19+ (the floor declared by `@noble/hashes` and `@noble/ciphers`; matches `engines.node` in `package.json`).
 
 ## Key Commands
 

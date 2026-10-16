@@ -5,7 +5,7 @@
 GitHub: https://github.com/forgesworn/dominion
 npm: dominion-protocol
 Licence: MIT
-Node: 20+
+Node: 20.19+
 ESM-only. Two subpath exports: `dominion-protocol` (main), `dominion-protocol/nostr`.
 
 ## Why Dominion?

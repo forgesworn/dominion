@@ -70,7 +70,7 @@ For scenarios requiring instant revocation (custody disputes, institutional SLA)
 npm install dominion-protocol
 ```
 
-ESM-only. Requires Node.js 20+.
+ESM-only. Requires Node.js 20.19+.
 
 ## Quick Start
 

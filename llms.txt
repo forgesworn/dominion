@@ -4,7 +4,7 @@
 
 GitHub: https://github.com/forgesworn/dominion
 
-ESM-only. Requires Node.js 20+. Two subpath exports: `dominion-protocol` (main), `dominion-protocol/nostr`.
+ESM-only. Requires Node.js 20.19+. Two subpath exports: `dominion-protocol` (main), `dominion-protocol/nostr`.
 
 ## Install
 
