@@ -7,6 +7,14 @@
 
 # [1.1.0](https://github.com/forgesworn/dominion/compare/v1.0.0...v1.1.0) (2026-04-10)
 
+## 1.1.2 (2026-10-16)
+
+### Bug Fixes
+
+- correct the published docs against the source (#49) (docs)
+
+
+
 
 ### Features
 
