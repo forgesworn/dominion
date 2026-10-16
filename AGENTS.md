@@ -8,7 +8,7 @@ Instructions in this file apply to the entire repository.
 - HKDF-SHA256 content key derivation per epoch and tier, AES-256-GCM encryption, GF(256) Shamir secret sharing.
 - Two-layer architecture: core crypto primitives are Nostr-free; Nostr layer builds/parses kind 30078 and kind 30480 events.
 - ESM-only package (`"type": "module"`).
-- Requires Node.js 20+.
+- Requires Node.js 20.19+ (the floor declared by `@noble/hashes` and `@noble/ciphers`; matches `engines.node` in `package.json`).
 
 ## Key Commands
 
@@ -29,8 +29,7 @@ Instructions in this file apply to the entire repository.
 - `src/config.ts`: config mutations (`addToTier`, `removeFromTier`, `revokePubkey`, `unrevokePubkey`, `addIndividualGrant`, `removeIndividualGrant`, `defaultConfig`)
 - `src/content-keys.ts`: HKDF content key derivation and epoch ID helpers
 - `src/encrypt.ts`: AES-256-GCM encrypt/decrypt (text and blob variants)
-- `src/shamir.ts`: GF(256) Shamir secret sharing primitives
-- `src/shamir-keys.ts`: CK splitting/reconstruction (`splitCK`, `reconstructCK`, `encodeCKShare`, `decodeCKShare`)
+- `src/shamir-keys.ts`: CK splitting/reconstruction built on `@forgesworn/shamir-core` (`splitCK`, `reconstructCK`, `encodeCKShare`, `decodeCKShare`). `splitSecret`, `reconstructSecret` and `ShamirShare` are re-exported from `@forgesworn/shamir-core` by `src/index.ts`; there is no local Shamir implementation.
 - `src/nostr/vault-config.ts`: kind 30078 Vault Config event builder/parser
 - `src/nostr/vault-share.ts`: kind 30480 Vault Share event builder/parser
 - `spec/protocol.md`: full protocol specification
@@ -49,13 +48,14 @@ kind 30480 Vault Share and NIP-78 kind 30078 Vault Config).
 
 - `@noble/hashes`: HKDF-SHA256, SHA-256, hex utilities.
 - `@noble/ciphers`: AES-256-GCM (synchronous, pure JS).
+- `@forgesworn/shamir-core`: GF(256) Shamir secret sharing (`splitSecret`, `reconstructSecret`).
 
 ## Crypto Details
 
 - CK derivation: `HKDF-SHA256(ikm=privkey, salt="dominion-ck-v1", info="epoch:{epochId}:tier:{tier}")`.
 - Encryption: AES-256-GCM, 12-byte random IV, output = `base64(iv || ciphertext || tag)`.
-- Shamir: GF(256) with irreducible polynomial 0x11b.
-- Epoch format: ISO 8601 weeks `YYYY-Www`.
+- Shamir: GF(256) with irreducible polynomial 0x11b, provided by `@forgesworn/shamir-core`.
+- Epoch format: ISO 8601 weeks `YYYY-Www` by default. `getCurrentEpochId` and `getEpochIdForDate` also take a `length` argument: `daily` gives `YYYY-MM-DD`, `monthly` gives `YYYY-MM`.
 
 ## Coding Conventions
 
@@ -73,7 +73,7 @@ kind 30480 Vault Share and NIP-78 kind 30078 Vault Config).
 - Run `npm run typecheck` and `npm test` before considering any change complete.
 - When changing public API exports, update both `src/index.ts` and `src/nostr/index.ts` as appropriate.
 - `buildVaultConfigEvent` and `buildVaultShareEvent` intentionally return unencrypted content: the caller handles NIP-44. Do not change this contract.
-- Epoch IDs use ISO 8601 week format `YYYY-Www`: do not introduce other formats.
+- Epoch IDs default to ISO 8601 week format `YYYY-Www`. The only other formats are daily `YYYY-MM-DD` and monthly `YYYY-MM`, selected through the `length` argument: do not introduce further formats.
 - Keep `spec/protocol.md` in sync when protocol behaviour changes.
 
 ## Release Notes

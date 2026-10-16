@@ -59,7 +59,7 @@ Combine with [nostr-attestations](https://github.com/forgesworn/nostr-attestatio
 | Creator paywall | Encrypt to paying subscribers; revoke on cancellation |
 | Family sharing | Private family tier; rotate keys weekly |
 | Close friends | Share selectively without making content public |
-| Institutional access | Tiered access with automatic key expiry |
+| Institutional access | Tiered access with epoch-based key rotation (weekly by default) |
 | Paid newsletters | One encryption operation, unlimited subscribers |
 
 For scenarios requiring instant revocation (custody disputes, institutional SLA), the designed [warden relays extension](spec/extensions/warden-relays.md) provides true revocation using NIP-42 AUTH. The extension is on the post-v1.0 roadmap; v1.0 ships with forward-only revocation only.
@@ -70,12 +70,33 @@ For scenarios requiring instant revocation (custody disputes, institutional SLA)
 npm install dominion-protocol
 ```
 
+ESM-only. Requires Node.js 20.19+.
+
 ## Quick Start
+
+The library expects every key as a 64-character lowercase hex string, for private keys and pubkeys alike. Content key derivation, the event builders and the parsers reject anything else, including `nsec` and `npub` values, so decode them first. The config helpers (`addToTier`, `revokePubkey` and the rest) do not validate pubkeys, so a malformed one is only caught later, when `parseVaultConfig` returns null. The examples use [nostr-tools](https://github.com/nbd-wtf/nostr-tools) for that and for the NIP-59 step. It is illustrative, not a dependency of this package.
+
+### Set Up Keys
+
+```typescript
+import { nip19, getPublicKey } from 'nostr-tools';
+import { bytesToHex } from 'nostr-tools/utils';
+
+// Author: decode your nsec (or start from generateSecretKey() for a fresh key)
+const decoded = nip19.decode(nsec);
+if (decoded.type !== 'nsec') throw new Error('Expected an nsec');
+const secretKey = decoded.data;                // Uint8Array
+const privateKeyHex = bytesToHex(secretKey);   // 64-char hex: the input to deriveContentKey
+const authorPubkey = getPublicKey(secretKey);  // 64-char hex
+
+// Recipients (alicePubkey, bobPubkey, recipientPubkey, ...) are hex pubkeys too.
+// For an npub, nip19.decode(npub).data is the hex key.
+```
 
 ### Encrypt Content for a Tier
 
 ```typescript
-import { deriveContentKey, contentKeyToHex, getCurrentEpochId, encrypt, decrypt } from 'dominion-protocol';
+import { deriveContentKey, getCurrentEpochId, encrypt, decrypt } from 'dominion-protocol';
 
 // Derive this week's Content Key for the "family" tier
 const epochId = getCurrentEpochId();  // e.g. "2026-W11"
@@ -93,18 +114,71 @@ import { defaultConfig, addToTier, removeFromTier, revokePubkey } from 'dominion
 
 let config = defaultConfig();
 config = addToTier(config, 'family', alicePubkey);
-config = addToTier(config, 'close_friends', bobPubkey);
-config = revokePubkey(config, formerFriendPubkey);  // excluded from next rotation
+config = addToTier(config, 'close_friends', bobPubkey);  // creates the tier if it does not exist
+config = revokePubkey(config, formerFriendPubkey);       // excluded from next rotation
 ```
 
 ### Distribute Keys via Nostr
 
 ```typescript
+import { contentKeyToHex } from 'dominion-protocol';
 import { buildVaultShareEvent } from 'dominion-protocol/nostr';
+import { nip59 } from 'nostr-tools';
 
-// Build a kind 30480 vault share (caller handles NIP-44 + NIP-59 wrapping)
-const event = buildVaultShareEvent(authorPubkey, recipientPubkey, ckHex, epochId, 'family');
+const ckHex = contentKeyToHex(ck);
+
+// Build a kind 30480 vault share. Its content is the raw Content Key,
+// so never publish it as it stands.
+const share = buildVaultShareEvent(authorPubkey, recipientPubkey, ckHex, epochId, 'family');
+
+// Seal (NIP-44) and gift-wrap (NIP-59), then publish `wrap` to the recipient's relays
+const wrap = nip59.wrapEvent(share, secretKey, recipientPubkey);
 ```
+
+### Receive a Share
+
+```typescript
+import { nip59 } from 'nostr-tools';
+import { hexToBytes } from 'nostr-tools/utils';
+import { decrypt } from 'dominion-protocol';
+import { parseVaultShare } from 'dominion-protocol/nostr';
+
+// `wrap` is the kind 1059 gift wrap addressed to you, `recipientSecretKey` your own secret key (Uint8Array)
+const rumor = nip59.unwrapEvent(wrap, recipientSecretKey);  // the plain kind 30480 event
+const shareData = parseVaultShare(rumor);                   // null if it is not a valid vault share
+if (!shareData) throw new Error('Not a vault share');
+
+const ck = hexToBytes(shareData.ckHex);
+const plaintext = decrypt(ciphertext, ck);                  // ciphertext: encrypted content fetched from a relay; throws if the key is wrong
+```
+
+`parseVaultShare` expects the unwrapped event, not the gift wrap, and performs no signature or sender check. Confirm who sent the share before you trust `fromPubkey`.
+
+### Rotate After a Revocation
+
+```typescript
+import { deriveContentKey, contentKeyToHex, getCurrentEpochId, revokePubkey } from 'dominion-protocol';
+import { buildVaultShareEvent } from 'dominion-protocol/nostr';
+import { nip59 } from 'nostr-tools';
+
+config = revokePubkey(config, formerFriendPubkey);
+
+// Revocation is forward-only: the revoked member keeps the keys they already hold.
+// Once the next epoch begins (e.g. "2026-W12"), derive a fresh key per tier
+// and send it only to the members who remain.
+const nextEpochId = getCurrentEpochId();
+for (const [tier, members] of Object.entries(config.tiers)) {
+  if (!Array.isArray(members)) continue;  // 'auto' tiers hold no list; resolve them in your app
+  const nextCkHex = contentKeyToHex(deriveContentKey(privateKeyHex, nextEpochId, tier));
+  for (const memberPubkey of members) {
+    const share = buildVaultShareEvent(authorPubkey, memberPubkey, nextCkHex, nextEpochId, tier);
+    const wrap = nip59.wrapEvent(share, secretKey, memberPubkey);
+    // publish `wrap` to the member's relays
+  }
+}
+```
+
+Individual grantees (`config.individualGrants`) sit outside the tier lists, so send them their shares separately. Persist the updated config with `buildVaultConfigEvent`, NIP-44 self-encrypted by you.
 
 ### Shamir Secret Sharing
 
@@ -133,8 +207,8 @@ Two-layer exports — use what you need:
 |-----------|---------------|
 | Key derivation | HKDF-SHA256 (`@noble/hashes`) |
 | Content encryption | AES-256-GCM, 12-byte random IV (`@noble/ciphers`) |
-| Secret sharing | Shamir over GF(256), irreducible polynomial 0x11b |
-| Epoch format | ISO 8601 weeks (`YYYY-Www`) |
+| Secret sharing | Shamir over GF(256), irreducible polynomial 0x11b (`@forgesworn/shamir-core`) |
+| Epoch format | ISO 8601 weeks (`YYYY-Www`) by default; daily (`YYYY-MM-DD`) and monthly (`YYYY-MM`) via a `length` argument |
 
 ### Nostr Integration
 
@@ -143,11 +217,11 @@ Two-layer exports — use what you need:
 | 30480 | Parameterised replaceable | Vault share — epoch CK for a specific recipient |
 | 30078 | NIP-78 app-specific data | Vault config — self-encrypted tier memberships |
 
-Built on NIP-01, NIP-09, NIP-40, NIP-44, NIP-59, and NIP-78. No new cryptographic primitives.
+Built on NIP-01, NIP-09, NIP-44, NIP-59, and NIP-78. No new cryptographic primitives. The library does not set NIP-40 `expiration` tags, so keys do not expire on their own; access ends when you stop distributing keys for new epochs.
 
 ## Protocol Spec
 
-See [spec/protocol.md](spec/protocol.md) for the full v1.0 protocol specification: epoch rotation, tier management, individual grants, revocation, and Lightning-gated access. Designed extensions live in [spec/extensions/](spec/extensions/) — currently warden relays (instant revocation) and quantum vault (post-quantum CK derivation).
+See [spec/protocol.md](spec/protocol.md) for the full v1.0 protocol specification: epoch rotation, tier management, individual grants, revocation, and Lightning-gated access (a spec-only flow: the library has no Lightning API, and your application confirms payment before distributing a key). Designed extensions live in [spec/extensions/](spec/extensions/), currently warden relays (instant revocation) and quantum vault (post-quantum CK derivation).
 
 ## Part of the ForgeSworn Toolkit
 
