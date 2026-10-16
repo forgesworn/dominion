@@ -5,7 +5,7 @@
 GitHub: https://github.com/forgesworn/dominion
 npm: dominion-protocol
 Licence: MIT
-Node: >=18
+Node: 20+
 ESM-only. Two subpath exports: `dominion-protocol` (main), `dominion-protocol/nostr`.
 
 ## Why Dominion?
@@ -48,8 +48,8 @@ Key insight: Content is encrypted ONCE with an epoch-based Content Key. The CK i
 ## Core Concepts
 
 - **Content Key (CK):** A 256-bit AES key used to encrypt content for a specific epoch and tier
-- **Epoch:** A time period (default: one ISO week) during which a single CK is used
-- **Epoch ID:** Format `YYYY-Www` (e.g. `2026-W13`)
+- **Epoch:** A time period (default: one ISO week; daily and monthly are also available) during which a single CK is used
+- **Epoch ID:** Format `YYYY-Www` by default (e.g. `2026-W13`); `YYYY-MM-DD` for daily and `YYYY-MM` for monthly epochs
 - **Vault share:** A gift-wrapped event containing a CK, sent to a specific recipient (kind 30480)
 - **Tier:** An audience level (e.g. family, connections) that determines CK distribution
 - **Vault config:** A self-encrypted event storing the author's tier memberships and settings (kind 30078)
@@ -67,8 +67,8 @@ Core crypto primitives -- universal, no Nostr knowledge.
 Content key derivation:
 - deriveContentKey(privkeyHex, epochId, tier) -> Uint8Array -- HKDF-SHA256 derived 32-byte content key
 - contentKeyToHex(ck) -> string -- convert content key to hex
-- getCurrentEpochId() -> string -- current ISO week (YYYY-Www)
-- getEpochIdForDate(date) -> string -- ISO week for a specific date
+- getCurrentEpochId(length?) -> string -- current epoch ID; length is 'weekly' (default, YYYY-Www), 'daily' (YYYY-MM-DD) or 'monthly' (YYYY-MM)
+- getEpochIdForDate(date, length?) -> string -- epoch ID for a specific date (UTC); same length values and default
 
 Encryption (AES-256-GCM):
 - encrypt(plaintext, ck) -> string -- encrypt text, returns base64(iv || ciphertext || tag)
@@ -77,8 +77,8 @@ Encryption (AES-256-GCM):
 - decryptBlob(encrypted, ck) -> Uint8Array -- decrypt binary data
 
 Shamir secret sharing (GF(256)):
-- splitSecret(secret, threshold, totalShares) -> CKShare[] -- split any secret
-- reconstructSecret(shares) -> Uint8Array -- reconstruct from threshold shares
+- splitSecret(secret, threshold, totalShares) -> ShamirShare[] -- split any secret (re-exported from @forgesworn/shamir-core)
+- reconstructSecret(shares, threshold) -> Uint8Array -- reconstruct from at least threshold shares (re-exported from @forgesworn/shamir-core)
 - splitCK(ck, threshold, total) -> CKShare[] -- split a 32-byte content key
 - reconstructCK(shares) -> Uint8Array -- reconstruct content key from shares
 - encodeCKShare(share) -> string -- encode as "index:hexdata"
@@ -96,7 +96,7 @@ Vault config management (pure, immutable):
 Constants:
 - KIND_VAULT_SHARE -- 30480
 - KIND_VAULT_CONFIG -- 30078 (NIP-78 app-specific data)
-- DOMINION_VERSION -- protocol version string
+- DOMINION_VERSION -- "0.1.0" (library constant, not the npm package version)
 - CK_SALT -- "dominion-ck-v1"
 - PROTOCOL_LABEL -- "dominion"
 - DEFAULT_EPOCH_LENGTH -- "weekly"
@@ -106,7 +106,10 @@ Types:
 - IndividualGrant -- { pubkey, label, grantedAt }
 - CKShare -- { index: number, data: Uint8Array }
 - TierName -- 'family' | 'connections' | 'close_friends' | 'subscribers' | string
-- EpochLength -- 'daily' | 'weekly' | 'monthly'
+- EpochLength -- 'daily' | 'weekly' | 'monthly' (all three are supported by getCurrentEpochId and getEpochIdForDate)
+- EpochConfig -- Record<string, EpochLength>, per-tier epoch length stored in DominionConfig.epochConfig (validated by parseVaultConfig, not read by any function)
+- CryptoAlgorithm -- 'secp256k1'
+- ShamirShare -- { id: number, threshold: number, data: Uint8Array } (from @forgesworn/shamir-core)
 - NostrEvent -- { kind, pubkey, created_at, tags, content }
 - VaultShareData -- { fromPubkey, epochId, ckHex, tier, algorithm }
 
@@ -124,12 +127,24 @@ Vault config (kind 30078, NIP-78):
 - parseVaultConfig(contentJson) -> DominionConfig | null
 - buildVaultConfigFilter(authorPubkey) -> filter object
 
+Event shapes and tags:
+- Kind 30480 share: d = "{epochId}:{tier}", p = recipient pubkey, tier = tier name, encrypted = nip44, algo = secp256k1, L = dominion, l = share (namespace dominion). Content is the raw content key as 64-character hex.
+- Kind 30078 config: d = "dominion:vault-config", encrypted = nip44, algo = secp256k1, L = dominion, l = config (namespace dominion). Content is the JSON of the DominionConfig.
+
+Filters:
+- buildVaultShareFilter(authorPubkey, epochId?, tier?) -> { kinds: [30480], authors: [authorPubkey] }, plus '#d': ["{epochId}:{tier}"] only when both epochId and tier are given (one on its own is ignored). It never sets '#p' or '#tier'.
+- buildVaultConfigFilter(authorPubkey) -> { kinds: [30078], authors: [authorPubkey], '#d': ["dominion:vault-config"] }
+
+Parser inputs:
+- parseVaultShare(event) takes the unwrapped rumor: the plain kind 30480 event object after NIP-59 unwrap, whose content is the 64-character hex key. It returns null for the raw gift wrap, any other kind, a missing d tag, content that is still NIP-44 ciphertext, a non-hex pubkey, or an algo tag other than secp256k1. epochId comes from the d tag (text before the first colon), tier from the tier tag (else the d tag suffix, else 'unknown'). It checks no signature and does not look at the p tag, so confirm the sender yourself.
+- parseVaultConfig(contentJson) takes the decrypted content string, not an event object. Pass event.content after NIP-44 self-decryption.
+
 ## Crypto Details
 
 - CK derivation: HKDF-SHA256(ikm=privkey, salt="dominion-ck-v1", info="epoch:{epochId}:tier:{tier}")
 - Encryption: AES-256-GCM, 12-byte random IV, output = base64(iv || ciphertext || tag)
-- Shamir: GF(256) with irreducible polynomial 0x11b, threshold 2-255
-- Epoch format: ISO 8601 weeks YYYY-Www
+- Shamir: GF(256) with irreducible polynomial 0x11b, threshold 2-255 (via @forgesworn/shamir-core)
+- Epoch format: ISO 8601 weeks YYYY-Www by default; daily YYYY-MM-DD and monthly YYYY-MM when a length is passed
 
 ## Design Principles
 
@@ -273,11 +288,11 @@ const parsedConfig = parseVaultConfig(decryptedContent);
 
 All functions throw descriptive Error instances on invalid input:
 
-- deriveContentKey: "Private key must be 64 lowercase hex characters", "Epoch ID must not be empty", "Tier must not be empty"
+- deriveContentKey: "Private key must be 64 lowercase hex characters", "Epoch ID must not be empty", "Tier must not be empty", "Epoch ID must not contain \":tier:\" delimiter", "Tier must not contain colons"
 - encrypt/decrypt: "Content key must be 32 bytes", "Ciphertext too short"
 - splitCK: "Content key must be 32 bytes"
-- splitSecret: "Threshold cannot exceed total shares", "Threshold must be at least 2", "Total shares must be at least 2", "Total shares cannot exceed 255 (GF(256) limit)"
-- reconstructSecret: "Need at least 2 shares to reconstruct", "Share index must be between 1 and 255", "Duplicate share indices detected", "All shares must have equal data length"
+- splitSecret (from @forgesworn/shamir-core): "Threshold must be in [2, 255]", "Number of shares must be >= threshold", "Number of shares must be <= 255", "Secret must not be empty"
+- reconstructSecret (from @forgesworn/shamir-core): "Need at least {threshold} shares, got {n}", "Invalid share ID: must be an integer in [1, 255]", messages beginning "Duplicate share IDs detected" and "Inconsistent share lengths", and "Share threshold ({a}) does not match supplied threshold ({b})"
 - decodeCKShare: "Invalid CK share: missing colon separator", "Invalid CK share: bad index", "Invalid CK share: bad hex data", "Invalid CK share: data must be 32 bytes (64 hex chars)"
 - buildVaultShareEvent: "Invalid author pubkey", "Invalid recipient pubkey", "Invalid content key hex"
 - buildVaultConfigEvent: "Invalid author pubkey"
@@ -296,7 +311,7 @@ Parser functions (parseVaultShare, parseVaultConfig) return null on invalid inpu
 
 ## Use Cases
 
-- **Paid subscriptions:** Gate content behind Lightning payments. Pay -> receive CK -> decrypt content. Non-payment -> skip next epoch's CK distribution.
+- **Paid subscriptions:** Gate content behind Lightning payments. Pay -> receive CK -> decrypt content. Non-payment -> skip next epoch's CK distribution. This is the flow in spec/protocol.md section 12; the library has no Lightning API, so your application confirms payment before distributing a key.
 - **Family content:** Share children's photos with family tier, milestone updates with connections tier.
 - **Private communities:** Run encrypted group communication with tiered access levels.
 - **Creator paywalls:** Nostr-native Patreon alternative with no platform taking a cut.
@@ -306,8 +321,32 @@ Parser functions (parseVaultShare, parseVaultConfig) return null on invalid inpu
 
 - @noble/hashes -- HKDF-SHA256, SHA-256, hex utilities
 - @noble/ciphers -- AES-256-GCM (synchronous, pure JS)
+- @forgesworn/shamir-core -- GF(256) Shamir secret sharing (splitSecret, reconstructSecret, re-exported from the main entry)
 
-Both dependencies are from the @noble suite (Paul Miller) -- audited, pure JavaScript, no native bindings.
+The @noble packages (Paul Miller) are audited, pure JavaScript, no native bindings.
+
+## Semantics
+
+Tiers:
+- DominionConfig.tiers maps a tier name to either an array of 64-character lowercase hex pubkeys or the literal string 'auto'. 'auto' is only a marker: the library never resolves it, so the client must (for example from a follow list).
+- defaultConfig() returns { tiers: { family: [], connections: 'auto' }, individualGrants: [], revokedPubkeys: [] }. There is no close_friends or subscribers key until you add one.
+- addToTier(config, tier, pubkey) creates the tier if it does not exist, so addToTier(config, 'close_friends', pk) works on a default config. If the tier is 'auto' it is replaced by an explicit list [pubkey], permanently ending auto-population. Adding an existing member returns the same config object. Tier names '__proto__', 'constructor' and 'prototype' throw "Reserved tier name". The pubkey is not validated here; parseVaultConfig and the event builders validate it.
+- removeFromTier returns the config unchanged if the tier is missing or 'auto'. revokePubkey removes the pubkey from every explicit tier list and from individualGrants, and adds it to revokedPubkeys once. addIndividualGrant sets grantedAt to the current Unix time in seconds, and on an existing pubkey only updates the label.
+- epochConfig (tier name -> EpochLength) is stored and validated by parseVaultConfig only. No function reads it: pass the tier's length to getCurrentEpochId or getEpochIdForDate yourself.
+
+Epoch IDs and key derivation:
+- getCurrentEpochId(length = 'weekly') and getEpochIdForDate(date, length = 'weekly') use UTC. weekly -> YYYY-Www (ISO 8601 week), daily -> YYYY-MM-DD, monthly -> YYYY-MM. A different length gives a different epoch ID and therefore a different key.
+- deriveContentKey requires a 64-character lowercase hex private key (uppercase is rejected), a non-empty epochId that does not contain ":tier:", and a non-empty tier that does not contain ":".
+
+Encryption and errors:
+- decrypt and decryptBlob throw on a wrong key or tampered data (AES-GCM authentication failure, currently "aes-gcm: invalid tag" from @noble/ciphers). They never return null or garbage. decrypt also throws a DOMException from atob on malformed base64, and both throw "Ciphertext too short" for fewer than 28 bytes of input.
+- encryptBlob output is the 12-byte random IV, then the ciphertext, then the 16-byte GCM tag. Length is input length + 28, with no magic bytes or version field. encrypt is base64 of the same layout over the UTF-8 plaintext.
+- Builders and filter builders (buildVaultShareEvent, buildVaultConfigEvent, buildVaultShareFilter, buildVaultConfigFilter) throw on invalid input. Parsers (parseVaultShare, parseVaultConfig) return null instead of throwing.
+- parseVaultConfig returns null unless tiers, individualGrants and revokedPubkeys have the expected shapes, every pubkey is 64-character lowercase hex, epochConfig values are 'daily', 'weekly' or 'monthly', and blossomUrl (if present) starts with http:// or https://.
+
+Constants and algorithm:
+- VaultShareData.algorithm is always 'secp256k1' (the CryptoAlgorithm type). buildVaultShareEvent sets the tag ['algo', 'secp256k1']. parseVaultShare treats a missing algo tag as 'secp256k1' and returns null for any other value.
+- DOMINION_VERSION is the string '0.1.0'. It is a constant in the library and is not the npm package version.
 
 ## Alignment with Existing NIPs
 
@@ -315,4 +354,4 @@ Both dependencies are from the @noble suite (Paul Miller) -- audited, pure JavaS
 - NIP-59: Used for gift-wrapping vault share events to recipients
 - NIP-78: Used for storing vault config as app-specific data (kind 30078)
 - NIP-32: Label namespace 'dominion' for filtering events
-- NIP-40: Expiration tags can be added to vault shares for time-bounded access
+- NIP-40: Expiration tags can be added by the caller to vault shares for time-bounded access. The library does not set them
