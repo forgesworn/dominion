@@ -161,22 +161,35 @@ import { deriveContentKey, contentKeyToHex, getCurrentEpochId, revokePubkey } fr
 import { buildVaultShareEvent } from 'dominion-protocol/nostr';
 import { nip59 } from 'nostr-tools';
 
+// The epoch you last distributed keys for, from your own records (here, the epochId
+// used above). The revoked member holds the keys for that epoch and every earlier one.
+const lastDistributedEpochId = epochId;
+
 config = revokePubkey(config, formerFriendPubkey);
 
 // Revocation is forward-only: the revoked member keeps the keys they already hold.
-// Once the next epoch begins (e.g. "2026-W12"), derive a fresh key per tier
-// and send it only to the members who remain.
+// A key depends only on your private key, the epoch ID and the tier, so deriving one for
+// the current epoch gives back the key the revoked member already holds.
+// Rotate only once the current epoch differs from the last one you distributed.
 const nextEpochId = getCurrentEpochId();
-for (const [tier, members] of Object.entries(config.tiers)) {
-  if (!Array.isArray(members)) continue;  // 'auto' tiers hold no list; resolve them in your app
-  const nextCkHex = contentKeyToHex(deriveContentKey(privateKeyHex, nextEpochId, tier));
-  for (const memberPubkey of members) {
-    const share = buildVaultShareEvent(authorPubkey, memberPubkey, nextCkHex, nextEpochId, tier);
-    const wrap = nip59.wrapEvent(share, secretKey, memberPubkey);
-    // publish `wrap` to the member's relays
+if (nextEpochId === lastDistributedEpochId) {
+  console.log(`Still in ${nextEpochId}: run this again once the next epoch begins`);
+} else {
+  // e.g. "2026-W12": derive a fresh key per tier and send it only to the members who remain
+  for (const [tier, members] of Object.entries(config.tiers)) {
+    if (!Array.isArray(members)) continue;  // 'auto' tiers hold no list; resolve them in your app
+    const nextCkHex = contentKeyToHex(deriveContentKey(privateKeyHex, nextEpochId, tier));
+    for (const memberPubkey of members) {
+      const share = buildVaultShareEvent(authorPubkey, memberPubkey, nextCkHex, nextEpochId, tier);
+      const wrap = nip59.wrapEvent(share, secretKey, memberPubkey);
+      // publish `wrap` to the member's relays
+    }
   }
+  // then record nextEpochId as your last distributed epoch
 }
 ```
+
+Run in the same epoch as the revocation, this sends nothing, which is correct: the revoked member keeps access until the epoch rolls over. Check on app load, as [spec/protocol.md](spec/protocol.md) recommends, or on a schedule. The snippet uses the weekly default; if you give tiers other lengths through `epochConfig`, pass each tier's length to `getCurrentEpochId` and compare per tier, because the library never reads `epochConfig` itself.
 
 Individual grantees (`config.individualGrants`) sit outside the tier lists, so send them their shares separately. Persist the updated config with `buildVaultConfigEvent`, NIP-44 self-encrypted by you.
 
