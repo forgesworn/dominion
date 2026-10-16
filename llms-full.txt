@@ -337,6 +337,7 @@ Tiers:
 Epoch IDs and key derivation:
 - getCurrentEpochId(length = 'weekly') and getEpochIdForDate(date, length = 'weekly') use UTC. weekly -> YYYY-Www (ISO 8601 week), daily -> YYYY-MM-DD, monthly -> YYYY-MM. A different length gives a different epoch ID and therefore a different key.
 - deriveContentKey requires a 64-character lowercase hex private key (uppercase is rejected), a non-empty epochId that does not contain ":tier:", and a non-empty tier that does not contain ":".
+- A key depends only on the private key, the epoch ID and the tier. After revokePubkey, the revoked member still holds the keys for every epoch already sent to them, so deriving for the current epoch re-sends a key they have. Rotate only when getCurrentEpochId() differs from the last epoch you distributed (spec/protocol.md, Epoch Rotation), and send the new key only to members who remain.
 
 Encryption and errors:
 - decrypt and decryptBlob throw on a wrong key or tampered data (AES-GCM authentication failure, currently "aes-gcm: invalid tag" from @noble/ciphers). They never return null or garbage. decrypt also throws a DOMException from atob on malformed base64, and both throw "Ciphertext too short" for fewer than 28 bytes of input.
